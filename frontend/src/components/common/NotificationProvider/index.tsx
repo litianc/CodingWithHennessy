@@ -136,7 +136,7 @@ export const useLoading = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [loadingText, setLoadingText] = useState('加载中...')
 
-  const withLoading = useCallback(async <T>(
+  const withLoading = useCallback(async <T,>(
     asyncFunction: () => Promise<T>,
     text?: string
   ): Promise<T> => {

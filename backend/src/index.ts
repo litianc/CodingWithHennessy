@@ -151,4 +151,4 @@ process.on('SIGINT', () => {
 // 启动服务器
 startServer()
 
-export { io }
+export { app, io }

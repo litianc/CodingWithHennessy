@@ -6,17 +6,32 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
+// 用户类型
+export interface User {
+  id: string;
+  _id?: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  role?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // 会议相关类型
 export interface Meeting {
   id: string;
+  _id?: string; // MongoDB ID
   title: string;
   description?: string;
   startTime: Date;
+  scheduledTime?: Date; // 兼容字段
   endTime?: Date;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   participants: Participant[];
   recordings: Recording[];
   transcriptions: TranscriptionSegment[];
+  transcriptionSegments?: TranscriptionSegment[]; // 兼容字段
   minutes?: MeetingMinutes;
   createdAt: Date;
   updatedAt: Date;
@@ -63,32 +78,39 @@ export interface MeetingMinutes {
   id: string;
   meetingId: string;
   title: string;
+  meetingTime?: Date; // 会议时间
+  generatedAt?: Date; // 生成时间
   summary: string;
-  keyPoints: string[];
-  actionItems: ActionItem[];
-  decisions: Decision[];
-  nextSteps: string[];
-  participants: string[];
+  keyPoints?: string[];
+  topics?: { title: string; description: string }[]; // 主要议题
+  actionItems?: ActionItem[];
+  decisions?: Decision[];
+  nextSteps?: string[];
+  nextMeeting?: { date?: string; topics?: string[] }; // 下次会议
+  participants?: string[];
   createdAt: Date;
   updatedAt: Date;
   status: 'draft' | 'reviewing' | 'approved' | 'sent';
 }
 
 export interface ActionItem {
-  id: string;
-  description: string;
-  assignee: string;
-  dueDate?: Date;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  id?: string;
+  content: string;
+  description?: string;
+  assignee?: string;
+  dueDate?: string;
+  status?: 'pending' | 'in_progress' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
 }
 
 export interface Decision {
-  id: string;
-  description: string;
-  decisionMaker: string;
-  timestamp: Date;
-  impact: string;
+  id?: string;
+  content: string;
+  description?: string;
+  assignee?: string;
+  decisionMaker?: string;
+  timestamp?: Date;
+  impact?: string;
 }
 
 // 声纹相关类型
@@ -248,6 +270,15 @@ export interface CreateMeetingRequest {
   title: string;
   description?: string;
   scheduledTime?: Date;
+  scheduledEndTime?: Date;
+  participants?: Omit<Participant, 'id' | 'joinedAt' | 'leftAt'>[];
+}
+
+export interface CreateMeetingData {
+  title: string;
+  description?: string;
+  scheduledTime?: Date;
+  scheduledEndTime?: Date;
   participants?: Omit<Participant, 'id' | 'joinedAt' | 'leftAt'>[];
 }
 

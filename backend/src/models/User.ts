@@ -126,9 +126,7 @@ const userSchema = new Schema<IUser>({
   },
 })
 
-// 索引
-userSchema.index({ email: 1 })
-userSchema.index({ username: 1 })
+// 索引 (移除重复的索引定义，因为已经在schema字段中定义了unique: true)
 userSchema.index({ createdAt: -1 })
 
 // 密码加密中间件

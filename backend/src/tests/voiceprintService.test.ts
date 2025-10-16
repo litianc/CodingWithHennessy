@@ -10,33 +10,29 @@ jest.mock('@/utils/logger', () => ({
   }
 }))
 
-// Mock fs
-jest.mock('fs', () => ({
-  promises: {
-    mkdir: jest.fn(),
-    readdir: jest.fn(),
-    readFile: jest.fn(),
-    writeFile: jest.fn(),
-    unlink: jest.fn()
-  }
-}))
-
-// Mock path
-jest.mock('path', () => ({
-  join: jest.fn((...args) => args.join('/'))
+// Mock fs/promises module
+jest.mock('fs/promises', () => ({
+  mkdir: jest.fn().mockResolvedValue(undefined),
+  readdir: jest.fn().mockResolvedValue([]),
+  readFile: jest.fn().mockResolvedValue('{}'),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined)
 }))
 
 describe('VoiceprintService', () => {
   let voiceprintService: VoiceprintService
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Set environment variable for testing
     process.env.VOICEPRINT_STORAGE_PATH = '/test/voiceprints'
 
+    // Clear all mocks before creating service
+    jest.clearAllMocks()
+
     voiceprintService = new VoiceprintService()
 
-    // Clear all mocks
-    jest.clearAllMocks()
+    // Wait for async initialization to complete
+    await new Promise(resolve => setTimeout(resolve, 10))
   })
 
   afterEach(() => {
@@ -203,6 +199,290 @@ describe('VoiceprintService', () => {
 
       expect(Array.isArray(voiceprints)).toBe(true)
       expect(voiceprints.length).toBe(0)
+    })
+  })
+
+  describe('createVoiceprint', () => {
+    let testAudioBuffer: Float32Array
+
+    beforeEach(() => {
+      // Create test audio buffer (longer than minSampleLength)
+      testAudioBuffer = new Float32Array(10000)
+      for (let i = 0; i < testAudioBuffer.length; i++) {
+        testAudioBuffer[i] = Math.sin(i * 0.001) * 0.5
+      }
+    })
+
+    it('should create voiceprint successfully', async () => {
+      const voiceprint = await voiceprintService.createVoiceprint(
+        'test-user-id',
+        'Test User',
+        'test@example.com',
+        testAudioBuffer,
+        16000
+      )
+
+      expect(voiceprint).toBeDefined()
+      expect(voiceprint.id).toBeDefined()
+      expect(voiceprint.userId).toBe('test-user-id')
+      expect(voiceprint.name).toBe('Test User')
+      expect(voiceprint.email).toBe('test@example.com')
+      expect(voiceprint.sampleCount).toBe(testAudioBuffer.length)
+      expect(voiceprint.sampleRate).toBe(16000)
+      expect(voiceprint.voiceprintData).toBeDefined()
+      expect(voiceprint.confidence).toBeGreaterThanOrEqual(0)
+      expect(voiceprint.confidence).toBeLessThanOrEqual(1)
+      expect(voiceprint.createdAt).toBeInstanceOf(Date)
+      expect(voiceprint.updatedAt).toBeInstanceOf(Date)
+      expect(voiceprint.metadata).toBeDefined()
+    })
+
+    it('should reject audio buffer that is too short', async () => {
+      const shortBuffer = new Float32Array(1000) // Less than minSampleLength
+
+      await expect(
+        voiceprintService.createVoiceprint(
+          'test-user-id',
+          'Test User',
+          'test@example.com',
+          shortBuffer
+        )
+      ).rejects.toThrow('音频样本太短')
+    })
+
+    it('should handle metadata correctly', async () => {
+      const metadata = {
+        deviceInfo: 'test-device',
+        recordingEnvironment: 'test-environment'
+      }
+
+      const voiceprint = await voiceprintService.createVoiceprint(
+        'test-user-id',
+        'Test User',
+        'test@example.com',
+        testAudioBuffer,
+        16000,
+        metadata
+      )
+
+      expect(voiceprint.metadata?.deviceInfo).toBe('test-device')
+      expect(voiceprint.metadata?.recordingEnvironment).toBe('test-environment')
+      expect(voiceprint.metadata?.audioQuality).toBeDefined()
+    })
+  })
+
+  describe('matchVoiceprint', () => {
+    let testAudioBuffer1: Float32Array
+    let testAudioBuffer2: Float32Array
+    let differentAudioBuffer: Float32Array
+    let voiceprintId: string
+
+    beforeEach(async () => {
+      // Create test audio buffers
+      testAudioBuffer1 = new Float32Array(10000)
+      testAudioBuffer2 = new Float32Array(10000)
+      differentAudioBuffer = new Float32Array(10000)
+
+      for (let i = 0; i < testAudioBuffer1.length; i++) {
+        testAudioBuffer1[i] = Math.sin(i * 0.001) * 0.5
+        testAudioBuffer2[i] = Math.sin(i * 0.001) * 0.5 + Math.random() * 0.01 // Similar with noise
+        differentAudioBuffer[i] = Math.cos(i * 0.001) * 0.5 // Different pattern
+      }
+
+      // Create a voiceprint for testing
+      const voiceprint = await voiceprintService.createVoiceprint(
+        'test-user-id',
+        'Test User',
+        'test@example.com',
+        testAudioBuffer1,
+        16000
+      )
+      voiceprintId = voiceprint.id
+    })
+
+    it('should match similar voiceprints', async () => {
+      const matches = await voiceprintService.matchVoiceprint(testAudioBuffer2, 16000)
+
+      expect(Array.isArray(matches)).toBe(true)
+      expect(matches.length).toBeGreaterThan(0)
+
+      const bestMatch = matches[0]
+      expect(bestMatch.userId).toBe('test-user-id')
+      expect(bestMatch.similarity).toBeGreaterThan(0.5)
+      expect(bestMatch.confidence).toBeGreaterThanOrEqual(0)
+      expect(bestMatch.confidence).toBeLessThanOrEqual(1)
+      expect(bestMatch.voiceprintId).toBe(voiceprintId)
+    })
+
+    it('should return empty array when no voiceprints exist', async () => {
+      // Create a new service instance with no voiceprints
+      const emptyService = new VoiceprintService()
+
+      const matches = await emptyService.matchVoiceprint(testAudioBuffer1, 16000)
+
+      expect(matches).toEqual([])
+    })
+
+    it('should return low similarity for different voices', async () => {
+      // Create a different user's voiceprint
+      await voiceprintService.createVoiceprint(
+        'other-user-id',
+        'Other User',
+        'other@example.com',
+        differentAudioBuffer,
+        16000
+      )
+
+      const matches = await voiceprintService.matchVoiceprint(testAudioBuffer1, 16000)
+
+      // Should find both voiceprints but with different similarity scores
+      expect(matches.length).toBeGreaterThanOrEqual(1)
+
+      const testUserMatch = matches.find(m => m.userId === 'test-user-id')
+      expect(testUserMatch).toBeDefined()
+      expect(testUserMatch!.similarity).toBeGreaterThan(0.5)
+    })
+  })
+
+  describe('deleteVoiceprintById', () => {
+    let voiceprintId: string
+
+    beforeEach(async () => {
+      const testAudioBuffer = new Float32Array(10000)
+      for (let i = 0; i < testAudioBuffer.length; i++) {
+        testAudioBuffer[i] = Math.sin(i * 0.001) * 0.5
+      }
+
+      const voiceprint = await voiceprintService.createVoiceprint(
+        'test-user-id',
+        'Test User',
+        'test@example.com',
+        testAudioBuffer,
+        16000
+      )
+      voiceprintId = voiceprint.id
+    })
+
+    it('should delete voiceprint successfully', async () => {
+      const result = await voiceprintService.deleteVoiceprintById(voiceprintId, 'test-user-id')
+
+      expect(result).toBe(true)
+    })
+
+    it('should return false for non-existent voiceprint', async () => {
+      const result = await voiceprintService.deleteVoiceprintById('non-existent-id', 'test-user-id')
+
+      expect(result).toBe(false)
+    })
+
+    it('should return false when voiceprint belongs to different user', async () => {
+      const result = await voiceprintService.deleteVoiceprintById(voiceprintId, 'other-user-id')
+
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('updateVoiceprint', () => {
+    let voiceprintId: string
+
+    beforeEach(async () => {
+      const testAudioBuffer = new Float32Array(10000)
+      for (let i = 0; i < testAudioBuffer.length; i++) {
+        testAudioBuffer[i] = Math.sin(i * 0.001) * 0.5
+      }
+
+      const voiceprint = await voiceprintService.createVoiceprint(
+        'test-user-id',
+        'Test User',
+        'test@example.com',
+        testAudioBuffer,
+        16000
+      )
+      voiceprintId = voiceprint.id
+    })
+
+    it('should update voiceprint metadata', async () => {
+      const updates = {
+        name: 'Updated Name',
+        email: 'updated@example.com'
+      }
+
+      const updatedVoiceprint = await voiceprintService.updateVoiceprint(
+        voiceprintId,
+        'test-user-id',
+        updates
+      )
+
+      expect(updatedVoiceprint).toBeDefined()
+      expect(updatedVoiceprint!.name).toBe('Updated Name')
+      expect(updatedVoiceprint!.email).toBe('updated@example.com')
+      expect(updatedVoiceprint!.updatedAt.getTime()).toBeGreaterThan(
+        updatedVoiceprint!.createdAt.getTime()
+      )
+    })
+
+    it('should return null for non-existent voiceprint', async () => {
+      const result = await voiceprintService.updateVoiceprint(
+        'non-existent-id',
+        'test-user-id',
+        { name: 'Updated Name' }
+      )
+
+      expect(result).toBeNull()
+    })
+
+    it('should return null when voiceprint belongs to different user', async () => {
+      const result = await voiceprintService.updateVoiceprint(
+        voiceprintId,
+        'other-user-id',
+        { name: 'Updated Name' }
+      )
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getVoiceprintStats with data', () => {
+    beforeEach(async () => {
+      // Create multiple voiceprints for testing
+      const testAudioBuffer = new Float32Array(10000)
+      for (let i = 0; i < testAudioBuffer.length; i++) {
+        testAudioBuffer[i] = Math.sin(i * 0.001) * 0.5
+      }
+
+      await voiceprintService.createVoiceprint(
+        'user1',
+        'User 1',
+        'user1@example.com',
+        testAudioBuffer,
+        16000
+      )
+
+      await voiceprintService.createVoiceprint(
+        'user2',
+        'User 2',
+        'user2@example.com',
+        testAudioBuffer,
+        16000
+      )
+
+      await voiceprintService.createVoiceprint(
+        'user1',
+        'User 1',
+        'user1@example.com',
+        testAudioBuffer,
+        16000
+      )
+    })
+
+    it('should return correct statistics', async () => {
+      const stats = await voiceprintService.getVoiceprintStats()
+
+      expect(stats.totalVoiceprints).toBe(3)
+      expect(stats.totalUsers).toBe(2)
+      expect(stats.averageConfidence).toBeGreaterThan(0)
+      expect(stats.averageConfidence).toBeLessThanOrEqual(1)
+      expect(typeof stats.qualityDistribution).toBe('object')
     })
   })
 })

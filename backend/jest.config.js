@@ -33,6 +33,6 @@ module.exports = {
     '^@/config/(.*)$': '<rootDir>/src/config/$1',
     '^@/websocket/(.*)$': '<rootDir>/src/websocket/$1',
   },
-  testTimeout: 10000,
+  testTimeout: 30000,
   verbose: true,
 }

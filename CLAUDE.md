@@ -46,3 +46,4 @@ This appears to be a specification/design document repository. When implementing
 - Focus on the AI-powered minutes generation workflow
 - Ensure smooth integration between voice recognition and LLM processing
 - Design for demonstration/Demo scenarios with polished animations and interactions
+- 目前是在做Demo演示产品，程序内部的接口认证不需要做得太严格

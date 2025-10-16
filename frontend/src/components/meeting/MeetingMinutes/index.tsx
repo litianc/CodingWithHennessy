@@ -104,7 +104,7 @@ export const MeetingMinutes: React.FC<MeetingMinutesProps> = ({
 ====================================
 
 会议标题：${minutes.title}
-会议时间：${new Date(meeting.scheduledTime).toLocaleString('zh-CN')}
+会议时间：${new Date(minutes.meetingTime).toLocaleString('zh-CN')}
 参会人员：${minutes.participants?.join(', ') || '未知'}
 
 主要议题
@@ -113,7 +113,7 @@ ${minutes.topics?.map(topic => `- ${topic.title}: ${topic.description}`).join('\
 
 关键决策
 ====================================
-${minutes.decisions?.map(decision => `- ${decision.content} (负责人: ${decision.assignee || '未指定'})`).join('\n') || '暂无'
+${minutes.decisions?.map(decision => `- ${decision.content} (负责人: ${decision.assignee || '未指定'})`).join('\n') || '暂无'}
 
 行动项目
 ====================================

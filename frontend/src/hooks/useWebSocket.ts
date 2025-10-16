@@ -34,17 +34,18 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const reconnectAttemptsRef = useRef(0)
 
   const connect = () => {
-    if (!token || !isAuthenticated) {
-      return
-    }
+    // Demo模式：允许无token连接
+    // if (!token || !isAuthenticated) {
+    //   return
+    // }
 
     setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }))
 
-    const socket = io(process.env.VITE_WS_URL || 'ws://localhost:5000', {
-      auth: { token },
-      transports: ['websocket'],
-      upgrade: false,
-      rememberUpgrade: false,
+    const socket = io(import.meta.env.VITE_WS_URL || 'ws://localhost:5001', {
+      auth: { token: token || 'demo-token' },
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      rememberUpgrade: true,
     })
 
     socket.on('connect', () => {
@@ -140,14 +141,15 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   }
 
   useEffect(() => {
-    if (autoConnect && token && isAuthenticated) {
+    // Demo模式：自动连接无需认证
+    if (autoConnect) {
       connect()
     }
 
     return () => {
       disconnect()
     }
-  }, [token, isAuthenticated, autoConnect])
+  }, [autoConnect])
 
   return {
     socket: state.socket,

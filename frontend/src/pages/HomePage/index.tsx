@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button, Card, Typography, Space } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   PlayCircleOutlined,
@@ -13,6 +14,7 @@ import {
 const { Title, Paragraph } = Typography
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate()
   const features = [
     {
       icon: <AudioOutlined className="text-3xl text-blue-500" />,
@@ -78,6 +80,7 @@ const HomePage: React.FC = () => {
                   size="large"
                   icon={<PlayCircleOutlined />}
                   className="btn-primary"
+                  onClick={() => navigate('/meeting')}
                 >
                   开始会议
                 </Button>
@@ -87,6 +90,7 @@ const HomePage: React.FC = () => {
                   size="large"
                   icon={<ExperimentOutlined />}
                   className="btn-secondary"
+                  onClick={() => navigate('/demo')}
                 >
                   演示模式
                 </Button>
@@ -173,6 +177,7 @@ const HomePage: React.FC = () => {
                   size="large"
                   icon={<PlayCircleOutlined />}
                   className="bg-white text-blue-600 border-white hover:bg-blue-50"
+                  onClick={() => navigate('/meeting')}
                 >
                   立即开始
                 </Button>
@@ -182,6 +187,7 @@ const HomePage: React.FC = () => {
                   size="large"
                   icon={<SettingOutlined />}
                   className="border-white text-white hover:bg-white/10"
+                  onClick={() => navigate('/settings')}
                 >
                   系统设置
                 </Button>

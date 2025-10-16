@@ -6,7 +6,15 @@ import { generateTokens, verifyRefreshToken, AuthenticatedRequest } from '@/midd
 import { RedisService } from '@/config/redis'
 import { logger } from '@/utils/logger'
 
-const redisService = new RedisService()
+let redisService: RedisService
+
+// 延迟初始化 RedisService
+const getRedisService = (): RedisService => {
+  if (!redisService) {
+    redisService = new RedisService()
+  }
+  return redisService
+}
 
 // 用户注册
 export const register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -50,7 +58,8 @@ export const register = asyncHandler(async (req: Request, res: Response): Promis
   const { accessToken, refreshToken } = generateTokens(user)
 
   // 将刷新令牌存储到 Redis
-  await redisService.set(
+  const service = getRedisService()
+  await service.set(
     `refresh_token:${user._id}`,
     refreshToken,
     7 * 24 * 60 * 60 // 7 天
@@ -85,7 +94,12 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
   const { identifier, password } = req.body // identifier 可以是邮箱或用户名
 
   // 查找用户
-  const user = await User.findByEmailOrUsername(identifier)
+  const user = await User.findOne({
+    $or: [
+      { email: identifier.toLowerCase() },
+      { username: identifier }
+    ]
+  })
   if (!user) {
     res.status(401).json({
       success: false,
@@ -121,7 +135,8 @@ export const login = asyncHandler(async (req: Request, res: Response): Promise<v
   const { accessToken, refreshToken } = generateTokens(user)
 
   // 将刷新令牌存储到 Redis
-  await redisService.set(
+  const service = getRedisService()
+  await service.set(
     `refresh_token:${user._id}`,
     refreshToken,
     7 * 24 * 60 * 60 // 7 天
@@ -167,6 +182,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response): Pr
     }
 
     // 检查 Redis 中是否存在该刷新令牌
+    const redisService = getRedisService()
     const storedToken = await redisService.get(`refresh_token:${user._id}`)
     if (storedToken !== refreshToken) {
       res.status(401).json({
@@ -205,7 +221,8 @@ export const logout = asyncHandler(async (req: AuthenticatedRequest, res: Respon
 
   if (user) {
     // 从 Redis 中删除刷新令牌
-    await redisService.del(`refresh_token:${user._id}`)
+    const service = getRedisService()
+    await service.del(`refresh_token:${user._id}`)
 
     logger.info(`用户登出: ${user.email}`)
   }
@@ -294,7 +311,8 @@ export const changePassword = asyncHandler(async (req: AuthenticatedRequest, res
   await user.save()
 
   // 删除所有刷新令牌，强制重新登录
-  await redisService.del(`refresh_token:${user._id}`)
+  const service = getRedisService()
+  await service.del(`refresh_token:${user._id}`)
 
   logger.info(`用户修改密码: ${user.email}`)
 
@@ -313,7 +331,8 @@ export const deleteAccount = asyncHandler(async (req: AuthenticatedRequest, res:
   await user.save()
 
   // 删除所有刷新令牌
-  await redisService.del(`refresh_token:${user._id}`)
+  const service = getRedisService()
+  await service.del(`refresh_token:${user._id}`)
 
   logger.warn(`用户删除账户: ${user.email}`)
 

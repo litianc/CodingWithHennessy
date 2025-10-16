@@ -124,12 +124,13 @@ export const useAudioRecording = (options: UseAudioRecordingOptions = {}) => {
         onDurationUpdate?.(duration)
       }, 1000)
 
-      setState({
+      setState(prev => ({
+        ...prev,
         isRecording: true,
         isPaused: false,
         stream,
         error: null
-      })
+      }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '录音失败'
       setState(prev => ({ ...prev, error: errorMessage }))
@@ -219,8 +220,18 @@ export const useAudioRecording = (options: UseAudioRecordingOptions = {}) => {
 
   // 组件卸载时清理资源
   useEffect(() => {
-    return cleanup
-  }, [cleanup])
+    return () => {
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current)
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
 
   // 重置状态
   const reset = useCallback(() => {

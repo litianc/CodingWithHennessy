@@ -61,19 +61,27 @@ export const disconnectRedis = async (): Promise<void> => {
 
 // Redis 工具函数
 export class RedisService {
-  private client: RedisClientType
+  private client: RedisClientType | null = null
 
   constructor() {
-    this.client = getRedisClient()
+    // 使用懒加载模式，不立即初始化客户端
+  }
+
+  private getClient(): RedisClientType {
+    if (!this.client) {
+      this.client = getRedisClient()
+    }
+    return this.client
   }
 
   // 设置键值对
   async set(key: string, value: string, expireInSeconds?: number): Promise<void> {
     try {
+      const client = this.getClient()
       if (expireInSeconds) {
-        await this.client.setEx(key, expireInSeconds, value)
+        await client.setEx(key, expireInSeconds, value)
       } else {
-        await this.client.set(key, value)
+        await client.set(key, value)
       }
     } catch (error) {
       logger.error(`Redis set error for key ${key}:`, error)
@@ -84,7 +92,8 @@ export class RedisService {
   // 获取值
   async get(key: string): Promise<string | null> {
     try {
-      return await this.client.get(key)
+      const client = this.getClient()
+      return await client.get(key)
     } catch (error) {
       logger.error(`Redis get error for key ${key}:`, error)
       throw error
@@ -94,7 +103,8 @@ export class RedisService {
   // 删除键
   async del(key: string): Promise<void> {
     try {
-      await this.client.del(key)
+      const client = this.getClient()
+      await client.del(key)
     } catch (error) {
       logger.error(`Redis del error for key ${key}:`, error)
       throw error
@@ -104,7 +114,8 @@ export class RedisService {
   // 检查键是否存在
   async exists(key: string): Promise<boolean> {
     try {
-      const result = await this.client.exists(key)
+      const client = this.getClient()
+      const result = await client.exists(key)
       return result === 1
     } catch (error) {
       logger.error(`Redis exists error for key ${key}:`, error)
@@ -115,7 +126,8 @@ export class RedisService {
   // 设置过期时间
   async expire(key: string, seconds: number): Promise<void> {
     try {
-      await this.client.expire(key, seconds)
+      const client = this.getClient()
+      await client.expire(key, seconds)
     } catch (error) {
       logger.error(`Redis expire error for key ${key}:`, error)
       throw error
@@ -125,7 +137,8 @@ export class RedisService {
   // 获取剩余过期时间
   async ttl(key: string): Promise<number> {
     try {
-      return await this.client.ttl(key)
+      const client = this.getClient()
+      return await client.ttl(key)
     } catch (error) {
       logger.error(`Redis TTL error for key ${key}:`, error)
       throw error
@@ -135,7 +148,8 @@ export class RedisService {
   // 哈希操作
   async hSet(key: string, field: string, value: string): Promise<void> {
     try {
-      await this.client.hSet(key, field, value)
+      const client = this.getClient()
+      await client.hSet(key, field, value)
     } catch (error) {
       logger.error(`Redis hSet error for key ${key}, field ${field}:`, error)
       throw error
@@ -144,7 +158,8 @@ export class RedisService {
 
   async hGet(key: string, field: string): Promise<string | undefined> {
     try {
-      return await this.client.hGet(key, field)
+      const client = this.getClient()
+      return await client.hGet(key, field)
     } catch (error) {
       logger.error(`Redis hGet error for key ${key}, field ${field}:`, error)
       throw error
@@ -153,7 +168,8 @@ export class RedisService {
 
   async hGetAll(key: string): Promise<Record<string, string>> {
     try {
-      return await this.client.hGetAll(key)
+      const client = this.getClient()
+      return await client.hGetAll(key)
     } catch (error) {
       logger.error(`Redis hGetAll error for key ${key}:`, error)
       throw error
@@ -163,7 +179,8 @@ export class RedisService {
   // 列表操作
   async lPush(key: string, ...values: string[]): Promise<number> {
     try {
-      return await this.client.lPush(key, values)
+      const client = this.getClient()
+      return await client.lPush(key, values)
     } catch (error) {
       logger.error(`Redis lPush error for key ${key}:`, error)
       throw error
@@ -172,7 +189,8 @@ export class RedisService {
 
   async rPop(key: string): Promise<string | null> {
     try {
-      return await this.client.rPop(key)
+      const client = this.getClient()
+      return await client.rPop(key)
     } catch (error) {
       logger.error(`Redis rPop error for key ${key}:`, error)
       throw error
@@ -181,7 +199,8 @@ export class RedisService {
 
   async lRange(key: string, start: number, stop: number): Promise<string[]> {
     try {
-      return await this.client.lRange(key, start, stop)
+      const client = this.getClient()
+      return await client.lRange(key, start, stop)
     } catch (error) {
       logger.error(`Redis lRange error for key ${key}:`, error)
       throw error
@@ -191,7 +210,8 @@ export class RedisService {
   // 集合操作
   async sAdd(key: string, ...members: string[]): Promise<number> {
     try {
-      return await this.client.sAdd(key, members)
+      const client = this.getClient()
+      return await client.sAdd(key, members)
     } catch (error) {
       logger.error(`Redis sAdd error for key ${key}:`, error)
       throw error
@@ -200,7 +220,8 @@ export class RedisService {
 
   async sMembers(key: string): Promise<string[]> {
     try {
-      return await this.client.sMembers(key)
+      const client = this.getClient()
+      return await client.sMembers(key)
     } catch (error) {
       logger.error(`Redis sMembers error for key ${key}:`, error)
       throw error
@@ -209,7 +230,8 @@ export class RedisService {
 
   async sIsMember(key: string, member: string): Promise<boolean> {
     try {
-      return await this.client.sIsMember(key, member)
+      const client = this.getClient()
+      return await client.sIsMember(key, member)
     } catch (error) {
       logger.error(`Redis sIsMember error for key ${key}, member ${member}:`, error)
       throw error

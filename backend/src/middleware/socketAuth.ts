@@ -11,8 +11,19 @@ export const authenticateSocket = async (socket: AuthenticatedSocket, next: (err
   try {
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '')
 
-    if (!token) {
-      return next(new Error('认证令牌缺失'))
+    // Demo模式：允许使用demo-token进行匿名连接
+    if (!token || token === 'demo-token') {
+      logger.info(`Socket Demo模式连接: ${socket.id}`)
+      // 创建虚拟Demo用户
+      socket.user = {
+        _id: 'demo-user-' + socket.id,
+        email: 'demo@example.com',
+        username: 'demo-user',
+        name: 'Demo User',
+        isActive: true
+      }
+      socket.join(`user-${socket.user._id}`)
+      return next()
     }
 
     // 验证 JWT 令牌
