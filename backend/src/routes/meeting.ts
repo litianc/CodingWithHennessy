@@ -11,7 +11,12 @@ import {
   endMeeting,
   getActiveMeetings
 } from '@/controllers/meetingController'
+import {
+  uploadAudioAndGenerateMinutes,
+  triggerMinutesGeneration
+} from '@/controllers/minutesController'
 import { authenticateToken } from '@/middleware/auth'
+import { upload } from '@/middleware/upload'
 import {
   validateCreateMeeting,
   validateUpdateMeeting
@@ -51,5 +56,15 @@ router.post('/:id/start', startMeeting)
 
 // 结束会议
 router.post('/:id/end', endMeeting)
+
+// 上传音频并生成纪要
+router.post(
+  '/:meetingId/upload-audio',
+  upload.single('audio'),
+  uploadAudioAndGenerateMinutes
+)
+
+// 手动触发纪要生成
+router.post('/:meetingId/generate-minutes', triggerMinutesGeneration)
 
 export default router

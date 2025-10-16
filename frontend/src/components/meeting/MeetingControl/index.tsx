@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Card, Button, Typography, Space, Badge, Tooltip, Modal, message, Upload } from 'antd'
+import { Card, Button, Typography, Space, Badge, Tooltip, Modal, message, Upload, Progress } from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -10,13 +10,15 @@ import {
   SettingOutlined,
   DownloadOutlined,
   FileTextOutlined,
-  UploadOutlined
+  UploadOutlined,
+  LoadingOutlined
 } from '@ant-design/icons'
 import { motion } from 'framer-motion'
 import { useMeetingStore } from '@/stores/meetingStore'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useAudioRecording } from '@/hooks/useAudioRecording'
 import { Meeting, Participant } from '@/types'
+import { apiRequest } from '@/services/api'
 
 const { Title, Text } = Typography
 
@@ -45,6 +47,10 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
     name: string
     type: string
   } | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [generationStage, setGenerationStage] = useState<'thinking' | 'searching' | 'writing' | null>(null)
+  const [generationProgress, setGenerationProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { socket, isConnected } = useWebSocket()
   const { currentMeeting, updateMeeting, isRecording, setRecording } = useMeetingStore()
@@ -67,6 +73,80 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
   })
 
   const currentMeetingData = meeting || currentMeeting
+
+  // WebSocket 事件监听 - 会议纪要生成实时反馈
+  useEffect(() => {
+    if (!socket || !currentMeetingData?._id) return
+
+    const meetingId = currentMeetingData._id
+
+    // 加入会议房间
+    socket.emit('join-meeting', meetingId)
+
+    // 监听纪要生成开始事件
+    socket.on('minutes-generation-started', (data: any) => {
+      console.log('纪要生成开始:', data)
+      setGenerationStage('thinking')
+      setGenerationProgress(0)
+    })
+
+    // 监听三阶段进度事件
+    socket.on('minutes-generation-thinking', (data: any) => {
+      console.log('AI正在思考...', data)
+      setGenerationStage('thinking')
+      setGenerationProgress(data.progress || 33)
+    })
+
+    socket.on('minutes-generation-searching', (data: any) => {
+      console.log('AI正在搜索资料...', data)
+      setGenerationStage('searching')
+      setGenerationProgress(data.progress || 66)
+    })
+
+    socket.on('minutes-generation-writing', (data: any) => {
+      console.log('AI正在生成纪要...', data)
+      setGenerationStage('writing')
+      setGenerationProgress(data.progress || 90)
+    })
+
+    // 监听纪要生成完成事件
+    socket.on('minutes-generated', (data: any) => {
+      console.log('纪要生成完成:', data)
+      setGenerationStage(null)
+      setGenerationProgress(100)
+      message.success('会议纪要生成完成!', 3)
+
+      // 更新会议数据
+      if (data.minutes) {
+        updateMeeting(meetingId, { minutes: data.minutes })
+      }
+
+      // 清空上传的文件
+      setUploadedFile(null)
+      setUploadedFileInfo(null)
+      setIsUploading(false)
+    })
+
+    // 监听纪要生成错误事件
+    socket.on('minutes-generation-error', (data: any) => {
+      console.error('纪要生成失败:', data)
+      setGenerationStage(null)
+      setGenerationProgress(0)
+      setIsUploading(false)
+      message.error(data.error || '生成纪要失败')
+    })
+
+    // 清理监听器
+    return () => {
+      socket.off('minutes-generation-started')
+      socket.off('minutes-generation-thinking')
+      socket.off('minutes-generation-searching')
+      socket.off('minutes-generation-writing')
+      socket.off('minutes-generated')
+      socket.off('minutes-generation-error')
+      socket.emit('leave-meeting', meetingId)
+    }
+  }, [socket, currentMeetingData?._id, updateMeeting])
 
   // 获取会议状态颜色
   const getStatusColor = (status: string) => {
@@ -301,37 +381,61 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
   const handleGenerateMinutes = async () => {
     if (!currentMeetingData) return
 
+    // 获取音频源
+    const audioSource = uploadedFile || recordingBlob || audioBlob
+    if (!audioSource) {
+      message.error('没有可用的音频文件')
+      return
+    }
+
     try {
       setIsStopModalVisible(false)
+      setIsUploading(true)
+      setUploadProgress(0)
+      setGenerationStage('thinking')
+      setGenerationProgress(0)
 
-      message.loading('AI正在分析会议内容...', 0)
+      // 显示上传进度提示
+      const uploadMessage = message.loading('正在上传音频文件...', 0)
 
-      // TODO: 调用后端API生成纪要
-      // const audioSource = uploadedFile || recordingBlob
-      // const formData = new FormData()
-      // formData.append('meetingId', currentMeetingData._id)
-      // if (uploadedFile) {
-      //   formData.append('audio', uploadedFile)
-      // } else if (recordingBlob) {
-      //   formData.append('audio', recordingBlob, 'recording.webm')
-      // }
-      //
-      // const response = await fetch(`/api/ai/generate-minutes`, {
-      //   method: 'POST',
-      //   body: formData
-      // })
+      // 调用后端API上传音频并生成纪要
+      const response = await apiRequest.uploadAudioForMinutes(
+        currentMeetingData._id,
+        audioSource,
+        true, // 自动生成纪要
+        (progress) => {
+          setUploadProgress(progress)
+          if (progress >= 100) {
+            uploadMessage()
+            message.loading('上传完成，AI正在分析会议内容...', 0)
+          }
+        }
+      )
 
-      // 模拟AI处理时间
-      setTimeout(() => {
+      console.log('音频上传响应:', response)
+
+      // 注意: 实际的纪要生成完成会通过 WebSocket 事件通知
+      // 这里只处理上传成功的反馈
+      if (response.success) {
         message.destroy()
-        message.success('会议纪要生成完成!', 3)
-        // 清空上传的文件
-        setUploadedFile(null)
-        setUploadedFileInfo(null)
-      }, 3000)
-    } catch (error) {
+        message.info('音频已上传，AI正在分析中...', 3)
+
+        // 如果响应中包含转录内容，可以先更新
+        if (response.data.transcriptions) {
+          updateMeeting(currentMeetingData._id, {
+            transcriptions: response.data.transcriptions
+          })
+        }
+      }
+    } catch (error: any) {
+      console.error('生成纪要失败:', error)
       message.destroy()
-      message.error('生成纪要失败')
+      setIsUploading(false)
+      setGenerationStage(null)
+      setUploadProgress(0)
+
+      const errorMessage = error.response?.data?.message || error.message || '生成纪要失败'
+      message.error(errorMessage)
     }
   }
 
@@ -517,6 +621,56 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
           </Space>
         </div>
       </div>
+
+      {/* AI生成进度模态框 */}
+      <Modal
+        title="AI正在生成会议纪要"
+        open={isUploading || generationStage !== null}
+        closable={false}
+        footer={null}
+        width={480}
+      >
+        <div className="space-y-6 py-6">
+          {/* 上传进度 */}
+          {uploadProgress < 100 && (
+            <div className="space-y-2">
+              <Text>正在上传音频文件...</Text>
+              <Progress percent={uploadProgress} status="active" />
+            </div>
+          )}
+
+          {/* 三阶段动画进度 */}
+          {uploadProgress >= 100 && generationStage && (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center space-y-4">
+                <LoadingOutlined style={{ fontSize: 48, color: '#1890ff' }} spin />
+
+                <div className="text-center">
+                  <Title level={4} className="mb-2">
+                    {generationStage === 'thinking' && '🤔 AI正在思考分析...'}
+                    {generationStage === 'searching' && '🔍 正在搜索相关资料...'}
+                    {generationStage === 'writing' && '✍️ 正在生成会议纪要...'}
+                  </Title>
+                  <Text type="secondary">
+                    {generationStage === 'thinking' && '分析会议内容和关键信息'}
+                    {generationStage === 'searching' && '查找相关背景和上下文'}
+                    {generationStage === 'writing' && '整理并撰写结构化纪要'}
+                  </Text>
+                </div>
+
+                <Progress
+                  percent={generationProgress}
+                  status="active"
+                  strokeColor={{
+                    '0%': '#108ee9',
+                    '100%': '#87d068',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* 停止录音操作弹窗 */}
       <Modal

@@ -6,7 +6,8 @@ import { asyncHandler } from '@/middleware/errorHandler'
 import { AuthenticatedRequest } from '@/middleware/auth'
 import { aiService } from '@/services/aiService'
 import { logger } from '@/utils/logger'
-import { emitToMeeting } from '@/utils/socket'
+import { emitToMeeting, getSocketIO } from '@/utils/socket'
+import { MinutesWebSocketHandler } from '@/websocket/minutesHandler'
 
 // AI聊天
 export const chatWithAI = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -128,6 +129,23 @@ export const generateMeetingMinutes = asyncHandler(async (req: AuthenticatedRequ
   }
 
   try {
+    // 获取WebSocket处理器
+    const io = getSocketIO()
+    let wsHandler: MinutesWebSocketHandler | null = null
+
+    if (io) {
+      const { MinutesWebSocketHandler } = await import('@/websocket/minutesHandler')
+      wsHandler = new MinutesWebSocketHandler(io)
+
+      // 发送生成开始事件
+      wsHandler.emitGenerationStarted(meetingId)
+
+      // 模拟三阶段进度
+      wsHandler.simulateGenerationStages(meetingId).catch(err => {
+        logger.error('模拟生成阶段失败:', err)
+      })
+    }
+
     // 构建转录文本
     const transcriptionText = meeting.transcriptions
       .map(t => `[${t.speakerName}]: ${t.content}`)
@@ -163,12 +181,21 @@ export const generateMeetingMinutes = asyncHandler(async (req: AuthenticatedRequ
     await meeting.save()
 
     // 通知会议中的其他用户
-    emitToMeeting(meetingId, 'minutes-generated', {
-      meetingId,
-      minutesId: meeting.minutes?.id,
-      title: meeting.minutes.title,
-      timestamp: new Date()
-    })
+    if (wsHandler) {
+      wsHandler.emitGenerationCompleted({
+        meetingId,
+        minutesId: meeting.minutes?.id || '',
+        minutes: meeting.minutes,
+        timestamp: new Date().toISOString()
+      })
+    } else {
+      emitToMeeting(meetingId, 'minutes-generated', {
+        meetingId,
+        minutesId: meeting.minutes?.id,
+        title: meeting.minutes.title,
+        timestamp: new Date()
+      })
+    }
 
     logger.info(`会议纪要生成成功: ${meetingId}`)
 

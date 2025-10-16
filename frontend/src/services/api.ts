@@ -127,6 +127,38 @@ export const apiRequest = {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(downloadUrl)
     })
+  },
+
+  // 上传音频文件并生成会议纪要
+  uploadAudioForMinutes: <T = any>(
+    meetingId: string,
+    audioFile: File | Blob,
+    autoGenerateMinutes: boolean = true,
+    onProgress?: (progress: number) => void
+  ): Promise<T> => {
+    const formData = new FormData()
+
+    // 如果是 Blob，需要转换为 File
+    if (audioFile instanceof Blob && !(audioFile instanceof File)) {
+      const fileName = `recording-${Date.now()}.webm`
+      audioFile = new File([audioFile], fileName, { type: audioFile.type || 'audio/webm' })
+    }
+
+    formData.append('audio', audioFile)
+    formData.append('autoGenerateMinutes', autoGenerateMinutes.toString())
+
+    return api.post(`/meetings/${meetingId}/upload-audio`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          onProgress(progress)
+        }
+      },
+      timeout: 300000 // 5 minutes timeout for large audio files
+    }).then(res => res.data)
   }
 }
 
