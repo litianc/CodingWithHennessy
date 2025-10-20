@@ -11,6 +11,7 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.bak
 backend/.env
 frontend/.env
 
@@ -87,6 +88,14 @@ ENV/
 !static/audio/*.wav
 !static/audio/*.mp3
 backend/test-resources/
+
+# Test files and reports
+backend/test-*.js
+backend/test-*.ts
+backend/test-reports/
+backend/test-results/
+backend/test-scripts/
+*.backup
 
 # Temporary files
 temp/
