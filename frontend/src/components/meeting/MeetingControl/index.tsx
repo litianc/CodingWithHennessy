@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Card, Button, Typography, Space, Badge, Tooltip, Modal, message, Upload, Progress } from 'antd'
+import { Card, Button, Typography, Space, Badge, Tooltip, Modal, message, Upload, Progress, Radio } from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -51,6 +51,7 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
   const [isUploading, setIsUploading] = useState(false)
   const [generationStage, setGenerationStage] = useState<'thinking' | 'searching' | 'writing' | null>(null)
   const [generationProgress, setGenerationProgress] = useState(0)
+  const [transcriptionMode, setTranscriptionMode] = useState<'overwrite' | 'append'>('overwrite')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { socket, isConnected } = useWebSocket()
 
@@ -408,6 +409,7 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
         currentMeetingData._id,
         audioSource,
         true, // 自动生成纪要
+        transcriptionMode, // 转录模式：使用用户选择的模式
         (progress) => {
           setUploadProgress(progress)
           if (progress >= 100) {
@@ -581,24 +583,48 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
               </div>
 
               {/* 上传音频按钮 */}
-              <Upload
-                accept=".mp3,.wav,.webm,.ogg,.m4a,audio/*"
-                beforeUpload={handleFileUpload}
-                showUploadList={false}
-                disabled={isRecording || isAudioRecording}
-              >
-                <Button
-                  icon={<UploadOutlined />}
-                  size="large"
+              <div className="flex flex-col items-center space-y-3">
+                <Upload
+                  accept=".mp3,.wav,.webm,.ogg,.m4a,audio/*"
+                  beforeUpload={handleFileUpload}
+                  showUploadList={false}
                   disabled={isRecording || isAudioRecording}
-                  style={{
-                    minWidth: '200px',
-                    height: '50px'
-                  }}
                 >
-                  📁 上传音频文件
-                </Button>
-              </Upload>
+                  <Button
+                    icon={<UploadOutlined />}
+                    size="large"
+                    disabled={isRecording || isAudioRecording}
+                    style={{
+                      minWidth: '200px',
+                      height: '50px'
+                    }}
+                  >
+                    📁 上传音频文件
+                  </Button>
+                </Upload>
+
+                {/* 转录模式选择 */}
+                <div className="flex flex-col items-center space-y-1">
+                  <Text type="secondary" className="text-xs">转录模式：</Text>
+                  <Radio.Group
+                    value={transcriptionMode}
+                    onChange={(e) => setTranscriptionMode(e.target.value)}
+                    size="small"
+                    disabled={isRecording || isAudioRecording}
+                  >
+                    <Radio.Button value="overwrite">
+                      <Tooltip title="清空现有转录记录，使用新上传的音频内容">
+                        覆盖
+                      </Tooltip>
+                    </Radio.Button>
+                    <Radio.Button value="append">
+                      <Tooltip title="保留现有转录记录，将新内容追加到末尾">
+                        追加
+                      </Tooltip>
+                    </Radio.Button>
+                  </Radio.Group>
+                </div>
+              </div>
 
               {/* 次要操作按钮 */}
               <div className="flex space-x-3">

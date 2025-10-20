@@ -35,6 +35,7 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
     const { meetingId } = req.params
     const userId = req.user!._id
     const autoGenerateMinutes = req.body.autoGenerateMinutes !== 'false'
+    const transcriptionMode = req.body.transcriptionMode === 'append' ? 'append' : 'overwrite' // 默认覆盖模式
 
     // 检查是否上传了文件
     if (!req.file) {
@@ -131,8 +132,21 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
       const result = await minutesGenerationService.processAudioAndGenerateMinutes(
         audioFilePath,
         meeting,
-        { autoGenerateMinutes }
+        {
+          autoGenerateMinutes,
+          transcriptionMode
+        }
       )
+
+      // 发送转录完成事件（通知前端清空并重新加载转录）
+      if (io) {
+        io.to(`meeting-${meetingId}`).emit('transcription-completed', {
+          meetingId,
+          transcriptionCount: result.transcriptions.length,
+          timestamp: new Date().toISOString()
+        })
+        logger.info(`发送转录完成事件: ${meetingId}, 共 ${result.transcriptions.length} 条转录`)
+      }
 
       // 等待模拟阶段完成后再发送完成事件
       await simulationPromise

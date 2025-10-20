@@ -16,6 +16,7 @@ export interface ProcessAudioOptions {
   autoGenerateMinutes?: boolean
   enableVoiceprint?: boolean
   language?: string
+  transcriptionMode?: 'overwrite' | 'append' // 转录模式：覆盖（默认）或追加
 }
 
 export interface ProcessAudioResult {
@@ -207,13 +208,23 @@ export class MinutesGenerationService {
 
   /**
    * 保存转录到会议对象
+   * @param mode - 'overwrite' 覆盖现有转录（默认），'append' 追加到现有转录
    */
   async saveTranscriptionsToMeeting(
     meeting: IMeeting,
-    transcriptions: TranscriptionResult[]
+    transcriptions: TranscriptionResult[],
+    mode: 'overwrite' | 'append' = 'overwrite'
   ): Promise<void> {
     try {
-      logger.info(`保存 ${transcriptions.length} 条转录到会议 ${meeting._id}`)
+      const oldCount = meeting.transcriptions?.length || 0
+
+      if (mode === 'overwrite') {
+        logger.info(`保存 ${transcriptions.length} 条转录到会议 ${meeting._id}（覆盖模式，清空现有 ${oldCount} 条）`)
+        // 清空现有转录记录
+        meeting.transcriptions = []
+      } else {
+        logger.info(`保存 ${transcriptions.length} 条转录到会议 ${meeting._id}（追加模式，现有 ${oldCount} 条）`)
+      }
 
       // 添加转录记录
       transcriptions.forEach(trans => {
@@ -230,7 +241,8 @@ export class MinutesGenerationService {
       // 保存到数据库
       await meeting.save()
 
-      logger.info('转录保存成功')
+      const newCount = meeting.transcriptions.length
+      logger.info(`转录保存成功（${mode === 'overwrite' ? '覆盖' : '追加'}模式），当前共 ${newCount} 条记录`)
     } catch (error) {
       logger.error('保存转录失败:', error)
       throw new Error('保存转录失败')
@@ -287,13 +299,14 @@ export class MinutesGenerationService {
     options: ProcessAudioOptions = {}
   ): Promise<ProcessAudioResult> {
     try {
-      logger.info(`开始完整流程:音频处理 → 语音识别 → 纪要生成`)
+      const mode = options.transcriptionMode || 'overwrite' // 默认覆盖模式
+      logger.info(`开始完整流程:音频处理 → 语音识别 → 纪要生成（转录模式: ${mode === 'overwrite' ? '覆盖' : '追加'}）`)
 
       // 1. 处理音频文件
       const processResult = await this.processAudioFile(audioFilePath, meeting)
 
-      // 2. 保存转录到会议
-      await this.saveTranscriptionsToMeeting(meeting, processResult.transcriptions)
+      // 2. 保存转录到会议（使用指定模式）
+      await this.saveTranscriptionsToMeeting(meeting, processResult.transcriptions, mode)
 
       // 3. 生成会议纪要(如果启用)
       if (options.autoGenerateMinutes !== false) {

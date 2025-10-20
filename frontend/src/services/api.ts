@@ -134,6 +134,7 @@ export const apiRequest = {
     meetingId: string,
     audioFile: File | Blob,
     autoGenerateMinutes: boolean = true,
+    transcriptionMode: 'overwrite' | 'append' = 'overwrite',
     onProgress?: (progress: number) => void
   ): Promise<T> => {
     const formData = new FormData()
@@ -146,6 +147,7 @@ export const apiRequest = {
 
     formData.append('audio', audioFile)
     formData.append('autoGenerateMinutes', autoGenerateMinutes.toString())
+    formData.append('transcriptionMode', transcriptionMode)
 
     return api.post(`/meetings/${meetingId}/upload-audio`, formData, {
       headers: {

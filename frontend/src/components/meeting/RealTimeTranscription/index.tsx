@@ -216,11 +216,17 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const transcriptionSegments = useMeetingStore((state) => state.transcriptionSegments)
   const addTranscriptionSegment = useMeetingStore((state) => state.addTranscriptionSegment)
   const updateTranscriptionSegment = useMeetingStore((state) => state.updateTranscriptionSegment)
+  const clearTranscriptionSegments = useMeetingStore((state) => state.clearTranscriptionSegments)
+  const fetchMeeting = useMeetingStore((state) => state.fetchMeeting)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 处理实时转录事件
   useEffect(() => {
     if (!socket) return
+
+    // 加入会议room以接收事件
+    socket.emit('join-meeting', meetingId)
+    console.log('RealTimeTranscription: 已加入会议房间', meetingId)
 
     // 开始转录
     const handleTranscriptionStarted = () => {
@@ -232,7 +238,7 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       // 可以显示中间结果，但通常不保存
     }
 
-    // 转录完成
+    // 转录完成（单个转录段，实时转录）
     const handleTranscriptionCompleted = (data: any) => {
       const { result } = data
       if (result) {
@@ -249,6 +255,20 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       }
     }
 
+    // 文件转录完成（从上传的音频文件转录）
+    const handleFileTranscriptionCompleted = async (data: any) => {
+      console.log('文件转录完成，清空旧内容并重新加载:', data)
+      // 清空现有的转录内容
+      clearTranscriptionSegments()
+      // 重新加载会议数据，获取最新的转录结果
+      try {
+        await fetchMeeting(meetingId)
+        setIsTranscribing(false)
+      } catch (error) {
+        console.error('重新加载会议数据失败:', error)
+      }
+    }
+
     // 转录会话完成
     const handleTranscriptionSessionCompleted = () => {
       setIsTranscribing(false)
@@ -262,18 +282,20 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
     socket.on('transcription-started', handleTranscriptionStarted)
     socket.on('transcription-intermediate', handleTranscriptionIntermediate)
-    socket.on('transcription-completed', handleTranscriptionCompleted)
+    socket.on('transcription-completed', handleFileTranscriptionCompleted)
+    socket.on('transcription-segment', handleTranscriptionCompleted)
     socket.on('transcription-session-completed', handleTranscriptionSessionCompleted)
     socket.on('transcription-error', handleTranscriptionError)
 
     return () => {
       socket.off('transcription-started', handleTranscriptionStarted)
       socket.off('transcription-intermediate', handleTranscriptionIntermediate)
-      socket.off('transcription-completed', handleTranscriptionCompleted)
+      socket.off('transcription-completed', handleFileTranscriptionCompleted)
+      socket.off('transcription-segment', handleTranscriptionCompleted)
       socket.off('transcription-session-completed', handleTranscriptionSessionCompleted)
       socket.off('transcription-error', handleTranscriptionError)
     }
-  }, [socket, addTranscriptionSegment])
+  }, [socket, addTranscriptionSegment, clearTranscriptionSegments, fetchMeeting, meetingId])
 
   // 编辑处理
   const handleEditSegment = (segmentId: string, content: string) => {

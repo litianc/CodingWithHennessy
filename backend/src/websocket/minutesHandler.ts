@@ -50,13 +50,13 @@ export class MinutesWebSocketHandler {
           return
         }
 
-        socket.join(meetingId)
+        socket.join(`meeting-${meetingId}`)
         socket.emit('joined-meeting', {
           meetingId,
           message: '成功加入会议房间'
         })
 
-        logger.info(`客户端 ${socket.id} 加入会议房间: ${meetingId}`)
+        logger.info(`客户端 ${socket.id} 加入会议房间: meeting-${meetingId}`)
       })
 
       // 离开会议房间

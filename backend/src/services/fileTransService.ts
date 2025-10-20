@@ -27,7 +27,7 @@ export interface FileTransTask {
 
 export interface FileTransResult {
   taskId: string
-  status: 'QUEUING' | 'RUNNING' | 'SUCCESS' | 'FAILED'
+  status: 'QUEUING' | 'RUNNING' | 'SUCCESS' | 'SUCCESS_WITH_NO_VALID_FRAGMENT' | 'FAILED'
   statusText?: string
   result?: string
   transcripts?: TranscriptionResult[]
@@ -153,8 +153,8 @@ export class FileTransService {
         statusText: response.StatusText
       }
 
-      // 如果任务成功，解析结果
-      if (status === 'SUCCESS' && response.Result) {
+      // 如果任务成功或成功但无有效片段，解析结果
+      if ((status === 'SUCCESS' || status === 'SUCCESS_WITH_NO_VALID_FRAGMENT') && response.Result) {
         result.result = response.Result
 
         // 解析为TranscriptionResult格式
@@ -261,7 +261,7 @@ export class FileTransService {
       const result = await this.getTaskResult(taskId)
 
       // 如果任务完成或失败，返回结果
-      if (result.status === 'SUCCESS' || result.status === 'FAILED') {
+      if (result.status === 'SUCCESS' || result.status === 'SUCCESS_WITH_NO_VALID_FRAGMENT' || result.status === 'FAILED') {
         logger.info('任务完成', {
           taskId,
           status: result.status,

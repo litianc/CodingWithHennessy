@@ -75,6 +75,10 @@ export const transcribeFromFile = asyncHandler(async (req: AuthenticatedRequest,
     // 执行语音识别
     const results = await speechService.recognizeFromFile(audioFilePath, recognitionOptions)
 
+    // 清空原有的转录记录（覆盖模式）
+    meeting.transcriptions = []
+    logger.info(`清空会议 ${meetingId} 的原有转录记录，准备添加新的转录结果`)
+
     // 将转录结果保存到会议中
     results.forEach(result => {
       meeting.addTranscription(

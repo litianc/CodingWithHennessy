@@ -205,8 +205,8 @@ function handleTranscriptionEvent(socket: Socket, meetingId: string, event: any)
               timestamp: event.timestamp
             })
 
-            // 发送给当前用户
-            socket.emit('transcription-completed', {
+            // 发送给当前用户（实时转录的单个片段）
+            socket.emit('transcription-segment', {
               meetingId,
               result: event.result,
               timestamp: event.timestamp
