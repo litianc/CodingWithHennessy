@@ -81,7 +81,7 @@ export class MinutesWebSocketHandler {
    * 发送纪要生成开始事件
    */
   emitGenerationStarted(meetingId: string): void {
-    this.io.to(meetingId).emit('minutes-generation-started', {
+    this.io.to(`meeting-${meetingId}`).emit('minutes-generation-started', {
       meetingId,
       timestamp: new Date().toISOString()
     })
@@ -110,7 +110,7 @@ export class MinutesWebSocketHandler {
         eventName = 'minutes-generation-progress'
     }
 
-    this.io.to(meetingId).emit(eventName, {
+    this.io.to(`meeting-${meetingId}`).emit(eventName, {
       meetingId,
       stage,
       progress,
@@ -125,7 +125,7 @@ export class MinutesWebSocketHandler {
    * 发送纪要生成完成事件
    */
   emitGenerationCompleted(data: MinutesGenerationResult): void {
-    this.io.to(data.meetingId).emit('minutes-generated', {
+    this.io.to(`meeting-${data.meetingId}`).emit('minutes-generated', {
       ...data,
       timestamp: new Date().toISOString()
     })
@@ -137,7 +137,7 @@ export class MinutesWebSocketHandler {
    * 发送纪要生成错误事件
    */
   emitGenerationError(data: MinutesGenerationError): void {
-    this.io.to(data.meetingId).emit('minutes-generation-error', {
+    this.io.to(`meeting-${data.meetingId}`).emit('minutes-generation-error', {
       ...data,
       timestamp: new Date().toISOString()
     })

@@ -8,8 +8,8 @@ const storage = multer.memoryStorage()
 
 // 文件过滤器
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // 检查文件类型
-  const allowedTypes = [
+  // 检查MIME类型
+  const allowedMimeTypes = [
     'audio/wav',
     'audio/mp3',
     'audio/mpeg',
@@ -18,13 +18,24 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
     'audio/flac',
     'audio/x-wav',
     'audio/m4a',
-    'audio/x-m4a'
+    'audio/x-m4a',
+    'audio/webm',
+    'audio/mp4',
+    'application/octet-stream' // 允许未知MIME类型，后续通过扩展名检查
   ]
 
-  if (allowedTypes.includes(file.mimetype)) {
+  // 获取文件扩展名
+  const ext = path.extname(file.originalname).toLowerCase()
+  const allowedExtensions = ['.wav', '.mp3', '.ogg', '.aac', '.flac', '.m4a', '.webm']
+
+  // 检查MIME类型或文件扩展名
+  const isMimeTypeAllowed = allowedMimeTypes.includes(file.mimetype)
+  const isExtensionAllowed = allowedExtensions.includes(ext)
+
+  if (isMimeTypeAllowed || isExtensionAllowed) {
     cb(null, true)
   } else {
-    cb(new Error('只支持音频文件格式 (wav, mp3, ogg, aac, flac, m4a)'))
+    cb(new Error(`不支持的文件格式。MIME类型: ${file.mimetype}, 扩展名: ${ext}。支持的格式: wav, mp3, ogg, aac, flac, m4a, webm`))
   }
 }
 

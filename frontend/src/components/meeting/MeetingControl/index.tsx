@@ -53,7 +53,12 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
   const [generationProgress, setGenerationProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { socket, isConnected } = useWebSocket()
-  const { currentMeeting, updateMeeting, isRecording, setRecording } = useMeetingStore()
+
+  // 使用细粒度选择器，只订阅需要的状态
+  const currentMeeting = useMeetingStore((state) => state.currentMeeting)
+  const updateMeeting = useMeetingStore((state) => state.updateMeeting)
+  const isRecording = useMeetingStore((state) => state.isRecording)
+  const setRecording = useMeetingStore((state) => state.setRecording)
 
   const {
     isRecording: isAudioRecording,
@@ -461,14 +466,19 @@ export const MeetingControl: React.FC<MeetingControlProps> = ({
       <div className="space-y-4">
         {/* 会议标题和状态 */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Title level={4} className="mb-0">
-              {currentMeetingData.title}
-            </Title>
-            <Badge
-              color={getStatusColor(currentMeetingData.status)}
-              text={getStatusText(currentMeetingData.status)}
-            />
+          <div className="flex flex-col space-y-1">
+            <div className="flex items-center space-x-3">
+              <Title level={4} className="mb-0">
+                {currentMeetingData.title}
+              </Title>
+              <Badge
+                color={getStatusColor(currentMeetingData.status)}
+                text={getStatusText(currentMeetingData.status)}
+              />
+            </div>
+            <Text type="secondary" className="text-xs" copyable>
+              会议ID: {currentMeetingData._id}
+            </Text>
           </div>
 
           <Button

@@ -14,15 +14,15 @@ const MeetingPage: React.FC = () => {
   useEffect(() => {
     if (!currentMeeting) {
       const mockMeeting = {
-        _id: 'demo-meeting-1',
-        title: '产品开发会议',
-        status: 'scheduled',
+        _id: '68f1dd7deb39f888191a4954',
+        title: 'Integration Test Meeting',
+        status: 'in_progress',
         participants: [
-          { id: '1', name: '张三', email: 'zhangsan@example.com' },
-          { id: '2', name: '李四', email: 'lisi@example.com' }
+          { id: '1', name: '说话人1', email: 'speaker1@test.com' },
+          { id: '2', name: '说话人2', email: 'speaker2@test.com' }
         ],
         startTime: new Date(),
-        description: '讨论新功能开发计划',
+        description: 'Testing audio upload with Mock service',
         settings: {
           allowRecording: true,
           enableTranscription: true,

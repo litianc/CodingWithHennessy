@@ -42,41 +42,57 @@ const productionFormat = winston.format.combine(
 // 创建传输器数组
 const transports: winston.transport[] = []
 
-// 控制台输出（开发环境）
+// 控制台输出（始终启用，方便开发调试）
+transports.push(
+  new winston.transports.Console({
+    format,
+  }),
+)
+
+// 文件输出（开发和生产环境都启用）
+const logDir = process.env.LOG_DIR || 'logs'
+
+// 错误日志
+transports.push(
+  new DailyRotateFile({
+    filename: path.join(logDir, 'error-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    level: 'error',
+    format: productionFormat,
+    maxSize: '20m',
+    maxFiles: '3d', // 开发环境保留3天
+    zippedArchive: false, // 开发环境不压缩，方便查看
+  }),
+)
+
+// 组合日志（所有级别）
+transports.push(
+  new DailyRotateFile({
+    filename: path.join(logDir, 'combined-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    format: productionFormat,
+    maxSize: '20m',
+    maxFiles: '3d', // 开发环境保留3天
+    zippedArchive: false,
+  }),
+)
+
+// 仅开发环境：额外的调试日志文件
 if (process.env.NODE_ENV !== 'production') {
   transports.push(
-    new winston.transports.Console({
-      format,
-    }),
-  )
-}
-
-// 文件输出（生产环境）
-if (process.env.NODE_ENV === 'production') {
-  const logDir = process.env.LOG_DIR || 'logs'
-
-  // 错误日志
-  transports.push(
     new DailyRotateFile({
-      filename: path.join(logDir, 'error-%DATE%.log'),
+      filename: path.join(logDir, 'debug-%DATE%.log'),
       datePattern: 'YYYY-MM-DD',
-      level: 'error',
-      format: productionFormat,
+      level: 'debug',
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
+        winston.format.printf(
+          (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+        ),
+      ),
       maxSize: '20m',
-      maxFiles: '14d',
-      zippedArchive: true,
-    }),
-  )
-
-  // 组合日志
-  transports.push(
-    new DailyRotateFile({
-      filename: path.join(logDir, 'combined-%DATE%.log'),
-      datePattern: 'YYYY-MM-DD',
-      format: productionFormat,
-      maxSize: '20m',
-      maxFiles: '14d',
-      zippedArchive: true,
+      maxFiles: '3d',
+      zippedArchive: false,
     }),
   )
 }

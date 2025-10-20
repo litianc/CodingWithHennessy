@@ -86,8 +86,16 @@ ENV/
 *.flac
 !static/audio/*.wav
 !static/audio/*.mp3
+backend/test-resources/
 
 # Temporary files
 temp/
 tmp/
 *.tmp
+
+# Claude configuration
+.claude/
+
+# Claude instructions and documentation
+plan/
+knowledge/

@@ -47,3 +47,8 @@ This appears to be a specification/design document repository. When implementing
 - Ensure smooth integration between voice recognition and LLM processing
 - Design for demonstration/Demo scenarios with polished animations and interactions
 - 目前是在做Demo演示产品，程序内部的接口认证不需要做得太严格
+- 可以将测试用的音频文件放到
+  /Users/xyli/Documents/Code/CodingWithHennessy/backend/test-resources/audio/ 目录中
+- Mock主要针对会议声音转文字。对于AI纪要生成尽量用真实的AI接口
+- 前端预定运行的端口是3000，后端预定运行的端口是5001，如果不是正常运行在这个端口，可能是有已有程序运行，可以杀死程序后再次运行。如果修改后还是不对，需要与用户确认
+- 开发调试时，前后端启动的同时，将日志记录打印到logs目录下,可以删掉3天以前的日志，以便于开发调试

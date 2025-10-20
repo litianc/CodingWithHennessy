@@ -9,7 +9,12 @@ import {
   leaveMeeting,
   startMeeting,
   endMeeting,
-  getActiveMeetings
+  getActiveMeetings,
+  chatWithMeeting,
+  updateMeetingMinutes,
+  addMeetingParticipant,
+  removeMeetingParticipant,
+  updateMeetingParticipant
 } from '@/controllers/meetingController'
 import {
   uploadAudioAndGenerateMinutes,
@@ -66,5 +71,16 @@ router.post(
 
 // 手动触发纪要生成
 router.post('/:meetingId/generate-minutes', triggerMinutesGeneration)
+
+// AI 聊天
+router.post('/:id/chat', chatWithMeeting)
+
+// 更新会议纪要
+router.patch('/:id/minutes', updateMeetingMinutes)
+
+// 参与者管理
+router.post('/:id/participants', addMeetingParticipant)
+router.delete('/:id/participants/:participantId', removeMeetingParticipant)
+router.patch('/:id/participants/:participantId', updateMeetingParticipant)
 
 export default router

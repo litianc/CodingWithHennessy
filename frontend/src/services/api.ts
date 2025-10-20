@@ -159,6 +159,39 @@ export const apiRequest = {
       },
       timeout: 300000 // 5 minutes timeout for large audio files
     }).then(res => res.data)
+  },
+
+  // 发送会议纪要邮件
+  sendMeetingMinutes: <T = any>(
+    meetingId: string,
+    customRecipients?: string[]
+  ): Promise<T> => {
+    return api.post(`/email/meeting/minutes`, {
+      meetingId,
+      customRecipients
+    }).then(res => res.data)
+  },
+
+  // 发送会议邀请邮件
+  sendMeetingInvitation: <T = any>(
+    meetingId: string,
+    customRecipients?: string[]
+  ): Promise<T> => {
+    return api.post(`/email/meeting/invitation`, {
+      meetingId,
+      customRecipients
+    }).then(res => res.data)
+  },
+
+  // 发送会议提醒邮件
+  sendMeetingReminder: <T = any>(
+    meetingId: string,
+    customRecipients?: string[]
+  ): Promise<T> => {
+    return api.post(`/email/meeting/reminder`, {
+      meetingId,
+      customRecipients
+    }).then(res => res.data)
   }
 }
 

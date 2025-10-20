@@ -24,6 +24,9 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/pop-core": "^1.8.0",
+    "ali-oss": "^6.23.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",

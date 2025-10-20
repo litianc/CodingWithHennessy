@@ -24,6 +24,19 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Demo 模式：跳过认证
+    if (process.env.NODE_ENV === 'development' || process.env.DEMO_MODE === 'true') {
+      // 创建一个虚拟的 demo 用户，使用有效的 ObjectId 格式
+      req.user = {
+        _id: '507f1f77bcf86cd799439011', // 有效的 MongoDB ObjectId
+        email: 'demo@example.com',
+        name: 'Demo User',
+        role: 'user',
+        isActive: true
+      } as any
+      return next()
+    }
+
     const authHeader = req.headers.authorization
     const token = authHeader && authHeader.split(' ')[1] // Bearer TOKEN
 

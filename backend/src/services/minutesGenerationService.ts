@@ -9,6 +9,7 @@ import { audioService, AudioMetadata } from './audioService'
 import { speechService, TranscriptionResult } from './speechRecognitionService'
 import { voiceprintService } from './voiceprintService'
 import { aiService, MeetingMinutesResult, MeetingMinutesOptions } from './aiService'
+import { fileTransService } from './fileTransService'
 import { IMeeting } from '@/models/Meeting'
 
 export interface ProcessAudioOptions {
@@ -62,19 +63,17 @@ export class MinutesGenerationService {
         logger.info(`音频格式转换完成: ${convertedPath}`)
       }
 
-      // 3. 语音识别
-      logger.info('开始语音识别...')
+      // 3. 语音识别（使用FileTrans服务，支持大文件和长时音频）
+      logger.info('开始语音识别（使用FileTrans服务）...')
       const language = meeting.settings?.language || 'zh-CN'
       const enableSpeakerDiarization = meeting.settings?.enableVoiceprint !== false
 
-      const transcriptions = await speechService.recognizeFromFile(processedAudioPath, {
-        language,
-        format: 'wav',
-        sampleRate: 16000,
+      const transcriptions = await fileTransService.recognizeFile(processedAudioPath, {
+        enableWords: true,
         enablePunctuation: true,
         enableInverseTextNormalization: true,
-        enableSpeakerDiarization,
-        speakerCount: enableSpeakerDiarization ? 10 : 1
+        maxWaitTime: 600000, // 10分钟超时
+        deleteAfterRecognition: false // 保留OSS文件供后续处理
       })
 
       logger.info(`语音识别完成,共 ${transcriptions.length} 条转录记录`)

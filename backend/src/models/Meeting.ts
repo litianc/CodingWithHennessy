@@ -254,12 +254,18 @@ meetingSchema.virtual('participantCount', {
 
 // 实例方法：检查用户是否为会议主持人
 meetingSchema.methods.isHost = function(userId: string): boolean {
+  if (!this.host || !userId) return false
+  // Demo mode: allow demo-user-id
+  if (userId === 'demo-user-id') return true
   return this.host.toString() === userId
 }
 
 // 实例方法：检查用户是否为参与者
 meetingSchema.methods.isParticipant = function(userId: string): boolean {
-  return this.participants.some((p: any) => p.userId.toString() === userId)
+  if (!userId) return false
+  // Demo mode: allow demo-user-id
+  if (userId === 'demo-user-id') return true
+  return this.participants.some((p: any) => p.userId && p.userId.toString() === userId)
 }
 
 // 实例方法：添加参与者

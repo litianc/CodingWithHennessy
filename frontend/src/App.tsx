@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import HomePage from '@/pages/HomePage'
 import MeetingPage from '@/pages/MeetingPage'
+import { MeetingDetailPage } from '@/pages/MeetingDetailPage'
 import SettingsPage from '@/pages/SettingsPage'
 import DemoPage from '@/pages/DemoPage'
 import ErrorBoundary from '@/components/common/ErrorBoundary'
@@ -34,7 +35,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/meeting" element={<MeetingPage />} />
-            <Route path="/meeting/:id" element={<MeetingPage />} />
+            <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/demo" element={<DemoPage />} />
           </Routes>

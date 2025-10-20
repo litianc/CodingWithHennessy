@@ -66,6 +66,12 @@ export const transcribeFromFile = asyncHandler(async (req: AuthenticatedRequest,
       ...options
     }
 
+    // 调试：检查服务状态
+    logger.info('服务状态检查:', {
+      isMockMode: speechService.useMockMode,
+      constructor: speechService.constructor.name
+    })
+
     // 执行语音识别
     const results = await speechService.recognizeFromFile(audioFilePath, recognitionOptions)
 

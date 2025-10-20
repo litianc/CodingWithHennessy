@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter } from 'react-router-dom'
+import { NotificationProvider } from '@/components/common/NotificationProvider'
 import App from './App'
 import './styles/globals.css'
 
@@ -45,9 +46,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={zhCN} theme={antdTheme}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <NotificationProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </NotificationProvider>
       </ConfigProvider>
     </QueryClientProvider>
   </React.StrictMode>,

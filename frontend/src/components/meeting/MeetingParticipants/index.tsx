@@ -21,13 +21,12 @@ interface MeetingParticipantsProps {
 }
 
 export const MeetingParticipants: React.FC<MeetingParticipantsProps> = ({ meetingId }) => {
-  const {
-    currentMeeting,
-    addParticipant,
-    removeParticipant,
-    updateParticipant,
-    loading
-  } = useMeetingStore()
+  // 使用细粒度选择器，只订阅需要的状态
+  const currentMeeting = useMeetingStore((state) => state.currentMeeting)
+  const addParticipant = useMeetingStore((state) => state.addParticipant)
+  const removeParticipant = useMeetingStore((state) => state.removeParticipant)
+  const updateParticipant = useMeetingStore((state) => state.updateParticipant)
+  const loading = useMeetingStore((state) => state.loading)
   const { showSuccess, showError } = useNotification()
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false)

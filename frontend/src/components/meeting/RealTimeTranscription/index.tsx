@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Card, Typography, Avatar, Space, Spin, Empty, Button, Tooltip } from 'antd'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { Card, Typography, Avatar, Space, Spin, Empty, Button, Tooltip, Input, Select, Tag, Progress, Dropdown } from 'antd'
 import {
   UserOutlined,
   SoundOutlined,
   EditOutlined,
   DeleteOutlined,
   CheckOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SearchOutlined,
+  DownloadOutlined,
+  FilterOutlined,
+  TeamOutlined
 } from '@ant-design/icons'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWebSocket } from '@/hooks/useWebSocket'
@@ -27,6 +31,7 @@ interface TranscriptionItemProps {
   onDelete?: (segmentId: string) => void
   isEditing?: boolean
   onToggleEdit?: (segmentId: string) => void
+  editable?: boolean
 }
 
 const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
@@ -34,7 +39,8 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   onEdit,
   onDelete,
   isEditing = false,
-  onToggleEdit
+  onToggleEdit,
+  editable = false
 }) => {
   const [editContent, setEditContent] = useState(segment.content)
   const editInputRef = useRef<any>(null)
@@ -85,7 +91,19 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                 {formatTime(segment.startTime)}
               </Text>
               <Tooltip title={`置信度: ${Math.round(segment.confidence * 100)}%`}>
-                <SoundOutlined className="text-xs" />
+                <div className="flex items-center space-x-1">
+                  <Progress
+                    type="circle"
+                    percent={Math.round(segment.confidence * 100)}
+                    size={20}
+                    strokeWidth={8}
+                    format={() => ''}
+                    strokeColor={
+                      segment.confidence >= 0.9 ? '#52c41a' :
+                      segment.confidence >= 0.7 ? '#faad14' : '#f5222d'
+                    }
+                  />
+                </div>
               </Tooltip>
             </Space>
           </div>
@@ -190,8 +208,14 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 }) => {
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [editingSegments, setEditingSegments] = useState<Set<string>>(new Set())
+  const [searchText, setSearchText] = useState('')
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>('all')
   const { socket } = useWebSocket()
-  const { transcriptionSegments, addTranscriptionSegment, updateTranscriptionSegment } = useMeetingStore()
+
+  // 使用细粒度选择器，只订阅需要的状态
+  const transcriptionSegments = useMeetingStore((state) => state.transcriptionSegments)
+  const addTranscriptionSegment = useMeetingStore((state) => state.addTranscriptionSegment)
+  const updateTranscriptionSegment = useMeetingStore((state) => state.updateTranscriptionSegment)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 处理实时转录事件
@@ -280,22 +304,138 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     }
   }, [transcriptionSegments])
 
+  // 获取所有说话人列表
+  const speakers = useMemo(() => {
+    const uniqueSpeakers = Array.from(new Set(transcriptionSegments.map(s => s.speakerName)))
+    return uniqueSpeakers
+  }, [transcriptionSegments])
+
+  // 筛选转录内容
+  const filteredSegments = useMemo(() => {
+    return transcriptionSegments.filter(segment => {
+      // 说话人筛选
+      if (selectedSpeaker !== 'all' && segment.speakerName !== selectedSpeaker) {
+        return false
+      }
+      // 内容搜索
+      if (searchText && !segment.content.toLowerCase().includes(searchText.toLowerCase())) {
+        return false
+      }
+      return true
+    })
+  }, [transcriptionSegments, selectedSpeaker, searchText])
+
+  // 统计信息
+  const stats = useMemo(() => {
+    const speakerStats = new Map<string, { count: number; totalTime: number; avgConfidence: number }>()
+
+    transcriptionSegments.forEach(segment => {
+      const existing = speakerStats.get(segment.speakerName) || { count: 0, totalTime: 0, avgConfidence: 0 }
+      speakerStats.set(segment.speakerName, {
+        count: existing.count + 1,
+        totalTime: existing.totalTime + (segment.endTime - segment.startTime),
+        avgConfidence: (existing.avgConfidence * existing.count + segment.confidence) / (existing.count + 1)
+      })
+    })
+
+    return speakerStats
+  }, [transcriptionSegments])
+
+  // 导出转录内容
+  const handleExport = () => {
+    const content = filteredSegments.map(segment => {
+      return `[${formatTime(segment.startTime)}] ${segment.speakerName}: ${segment.content}`
+    }).join('\n\n')
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `会议转录_${new Date().toLocaleDateString('zh-CN')}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   return (
     <Card
       title={
-        <div className="flex items-center justify-between">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <SoundOutlined />
+              <span>实时转录</span>
+              {isTranscribing && (
+                <Spin size="small" />
+              )}
+            </div>
+            <Space>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExport}
+                disabled={filteredSegments.length === 0}
+                size="small"
+              >
+                导出
+              </Button>
+              <Text type="secondary" className="text-sm">
+                {filteredSegments.length} / {transcriptionSegments.length} 条记录
+              </Text>
+            </Space>
+          </div>
+
+          {/* 搜索和筛选工具栏 */}
           <div className="flex items-center space-x-2">
-            <SoundOutlined />
-            <span>实时转录</span>
-            {isTranscribing && (
-              <Spin size="small" />
+            <Input
+              placeholder="搜索转录内容..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              size="small"
+              style={{ flex: 1, maxWidth: 300 }}
+            />
+            <Select
+              value={selectedSpeaker}
+              onChange={setSelectedSpeaker}
+              size="small"
+              style={{ width: 120 }}
+              suffixIcon={<FilterOutlined />}
+            >
+              <Select.Option value="all">全部说话人</Select.Option>
+              {speakers.map(speaker => (
+                <Select.Option key={speaker} value={speaker}>
+                  {speaker}
+                </Select.Option>
+              ))}
+            </Select>
+
+            {/* 说话人统计 */}
+            {speakers.length > 0 && (
+              <Dropdown
+                trigger={['click']}
+                menu={{
+                  items: Array.from(stats.entries()).map(([speaker, stat]) => ({
+                    key: speaker,
+                    label: (
+                      <div className="py-1">
+                        <div className="font-medium">{speaker}</div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <div>发言次数: {stat.count}</div>
+                          <div>平均置信度: {Math.round(stat.avgConfidence * 100)}%</div>
+                        </div>
+                      </div>
+                    )
+                  }))
+                }}
+              >
+                <Button size="small" icon={<TeamOutlined />}>
+                  统计
+                </Button>
+              </Dropdown>
             )}
           </div>
-          <Space>
-            <Text type="secondary" className="text-sm">
-              {transcriptionSegments.length} 条记录
-            </Text>
-          </Space>
         </div>
       }
       className="transcription-panel"
@@ -308,19 +448,19 @@ export const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           overflowY: 'auto'
         }}
       >
-        {transcriptionSegments.length === 0 ? (
+        {filteredSegments.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
-              isTranscribing
-                ? '正在聆听...'
-                : '暂无转录内容'
+              transcriptionSegments.length === 0
+                ? (isTranscribing ? '正在聆听...' : '暂无转录内容')
+                : '没有匹配的转录内容'
             }
           />
         ) : (
           <div className="space-y-2">
             <AnimatePresence>
-              {transcriptionSegments.map((segment) => (
+              {filteredSegments.map((segment) => (
                 <TranscriptionItem
                   key={segment.id}
                   segment={segment}

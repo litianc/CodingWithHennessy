@@ -71,12 +71,12 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
         return
       }
 
-      // 验证文件大小(限制100MB)
-      const maxSize = 100 * 1024 * 1024
+      // 验证文件大小(限制512MB - 支持大文件录音识别)
+      const maxSize = 512 * 1024 * 1024
       if (req.file.size > maxSize) {
         res.status(400).json({
           success: false,
-          message: '文件大小超过限制,最大支持 100MB'
+          message: '文件大小超过限制,最大支持 512MB'
         })
         return
       }
@@ -118,12 +118,14 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
       if (io && autoGenerateMinutes) {
         wsHandler = new MinutesWebSocketHandler(io)
         wsHandler.emitGenerationStarted(meetingId)
-
-        // 模拟三阶段进度(在后台异步执行)
-        wsHandler.simulateGenerationStages(meetingId).catch(err => {
-          logger.error('模拟生成阶段失败:', err)
-        })
       }
+
+      // 先启动模拟三阶段进度，不等待完成
+      const simulationPromise = wsHandler
+        ? wsHandler.simulateGenerationStages(meetingId).catch(err => {
+            logger.error('模拟生成阶段失败:', err)
+          })
+        : Promise.resolve()
 
       // 处理音频并生成纪要
       const result = await minutesGenerationService.processAudioAndGenerateMinutes(
@@ -131,6 +133,9 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
         meeting,
         { autoGenerateMinutes }
       )
+
+      // 等待模拟阶段完成后再发送完成事件
+      await simulationPromise
 
       // 发送完成事件
       if (wsHandler && result.minutes) {
@@ -243,16 +248,23 @@ export const triggerMinutesGeneration = asyncHandler(
       if (io) {
         wsHandler = new MinutesWebSocketHandler(io)
         wsHandler.emitGenerationStarted(meetingId)
-        wsHandler.simulateGenerationStages(meetingId).catch(err => {
-          logger.error('模拟生成阶段失败:', err)
-        })
       }
+
+      // 先启动模拟三阶段进度，不等待完成
+      const simulationPromise = wsHandler
+        ? wsHandler.simulateGenerationStages(meetingId).catch(err => {
+            logger.error('模拟生成阶段失败:', err)
+          })
+        : Promise.resolve()
 
       // 生成纪要
       const minutesResult = await minutesGenerationService.generateMinutes(meeting, options)
 
       // 保存纪要
       await minutesGenerationService.saveMinutesToMeeting(meeting, minutesResult)
+
+      // 等待模拟阶段完成后再发送完成事件
+      await simulationPromise
 
       // 发送完成事件
       if (wsHandler) {

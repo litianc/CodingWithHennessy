@@ -1,3 +1,7 @@
+// 加载环境变量 - 必须在其他所有导入之前
+import dotenv from 'dotenv'
+dotenv.config()
+
 import express from 'express'
 import { createServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
@@ -5,7 +9,6 @@ import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
-import dotenv from 'dotenv'
 import { connectDatabase } from './config/database'
 import { connectRedis } from './config/redis'
 import { logger } from './utils/logger'
@@ -14,9 +17,6 @@ import { notFoundHandler } from './middleware/notFoundHandler'
 import apiRoutes from './routes'
 import { initializeSocket } from './utils/socket'
 import { setupTranscriptionHandlers } from './websocket/transcriptionHandler'
-
-// 加载环境变量
-dotenv.config()
 
 const app = express()
 const server = createServer(app)
@@ -95,6 +95,68 @@ io.on('connection', (socket) => {
   socket.on('leave-meeting', (meetingId: string) => {
     socket.leave(`meeting-${meetingId}`)
     logger.info(`Client ${socket.id} left meeting ${meetingId}`)
+  })
+
+  // 生成会议纪要
+  socket.on('generate-minutes', async (data: { meetingId: string; transcript: any[] }) => {
+    logger.info(`收到生成纪要请求: ${data.meetingId}`)
+
+    try {
+      const { meetingId, transcript } = data
+
+      // 动态导入相关服务
+      const { Meeting } = await import('./models/Meeting')
+      const { minutesGenerationService } = await import('./services/minutesGenerationService')
+      const { MinutesWebSocketHandler } = await import('./websocket/minutesHandler')
+
+      // 查找会议
+      const meeting = await Meeting.findById(meetingId)
+      if (!meeting) {
+        socket.emit('minutes-generation-error', {
+          meetingId,
+          error: '会议不存在',
+          timestamp: new Date().toISOString()
+        })
+        return
+      }
+
+      // 创建WebSocket处理器
+      const wsHandler = new MinutesWebSocketHandler(io)
+
+      // 发送开始事件
+      wsHandler.emitGenerationStarted(meetingId)
+
+      // 启动模拟三阶段进度
+      const simulationPromise = wsHandler.simulateGenerationStages(meetingId).catch(err => {
+        logger.error('模拟生成阶段失败:', err)
+      })
+
+      // 生成纪要
+      const minutesResult = await minutesGenerationService.generateMinutes(meeting, {})
+
+      // 保存纪要
+      await minutesGenerationService.saveMinutesToMeeting(meeting, minutesResult)
+
+      // 等待模拟阶段完成
+      await simulationPromise
+
+      // 发送完成事件
+      wsHandler.emitGenerationCompleted({
+        meetingId,
+        minutesId: meeting.minutes?.id || '',
+        minutes: meeting.minutes,
+        timestamp: new Date().toISOString()
+      })
+
+      logger.info(`会议纪要生成成功: ${meetingId}`)
+    } catch (error: any) {
+      logger.error('生成会议纪要失败:', error)
+      socket.emit('minutes-generation-error', {
+        meetingId: data.meetingId,
+        error: error.message || '生成失败',
+        timestamp: new Date().toISOString()
+      })
+    }
   })
 
   // 断开连接

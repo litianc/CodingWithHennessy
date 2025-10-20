@@ -30,16 +30,17 @@ export const MeetingDetailPage: React.FC = () => {
   const { meetingId } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const {
-    currentMeeting,
-    loading,
-    fetchMeeting,
-    updateMeeting,
-    startMeeting,
-    endMeeting,
-    joinMeeting,
-    leaveMeeting
-  } = useMeetingStore()
+
+  // 使用细粒度选择器，只订阅必要的状态
+  const currentMeeting = useMeetingStore((state) => state.currentMeeting)
+  const loading = useMeetingStore((state) => state.isLoading)
+  const fetchMeeting = useMeetingStore((state) => state.fetchMeeting)
+  const updateMeeting = useMeetingStore((state) => state.updateMeeting)
+  const startMeeting = useMeetingStore((state) => state.startMeeting)
+  const endMeeting = useMeetingStore((state) => state.endMeeting)
+  const joinMeeting = useMeetingStore((state) => state.joinMeeting)
+  const leaveMeeting = useMeetingStore((state) => state.leaveMeeting)
+
   const { showSuccess, showError } = useNotification()
 
   const [activeTab, setActiveTab] = useState('transcription')

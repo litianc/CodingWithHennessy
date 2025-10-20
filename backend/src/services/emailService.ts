@@ -46,6 +46,15 @@ export class EmailService {
       port: config.port,
       secure: config.secure,
       auth: config.auth,
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1',
+        maxVersion: 'TLSv1.3',
+        ciphers: 'ALL'
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 30000
     })
   }
 
