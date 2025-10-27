@@ -1,0 +1,32 @@
+services:
+  funasr:
+    image: registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-cpu-0.4.5
+    container_name: funasr-service
+    ports:
+      - "5004:10095"  # WebSocket 端口映射到5004
+    environment:
+      - MODEL_DIR=/workspace/models
+      - DEVICE=cpu
+      - LOG_LEVEL=info
+    volumes:
+      - ./funasr/models:/workspace/models
+      - ./funasr/logs:/workspace/logs
+      - ./funasr/cache:/root/.cache
+      - ./funasr/hotwords.txt:/workspace/hotwords.txt
+    working_dir: /workspace/FunASR/runtime/websocket/build/bin
+    command: ["/bin/bash", "-c", "echo 'Starting FunASR service...' && ./funasr-wss-server --model-dir /workspace/models/damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-onnx --vad-dir /workspace/models/damo/speech_fsmn_vad_zh-cn-16k-common-onnx --punc-dir /workspace/models/damo/punc_ct-transformer_cn-en-common-vocab471067-large-onnx --lm-dir '' --port 10095 --hotword /workspace/hotwords.txt --certfile 0 --keyfile 0 --decoder-thread-num 1 --model-thread-num 1 --io-thread-num 1 2>&1 | tee -a /workspace/models/server.log"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "funasr-wss-server"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+        reservations:
+          cpus: '1'
+          memory: 2G

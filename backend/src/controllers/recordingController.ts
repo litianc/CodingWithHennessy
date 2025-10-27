@@ -18,6 +18,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       'audio/wav',
+      'audio/x-wav',
       'audio/mp3',
       'audio/mpeg',
       'audio/webm',
@@ -25,10 +26,13 @@ const upload = multer({
       'audio/m4a'
     ]
 
-    if (allowedTypes.includes(file.mimetype)) {
+    const allowedExtensions = ['.wav', '.mp3', '.webm', '.ogg', '.m4a']
+    const fileExt = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'))
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExt)) {
       cb(null, true)
     } else {
-      cb(new Error('不支持的音频格式'))
+      cb(new Error(`不支持的音频格式: ${file.mimetype}, 文件: ${file.originalname}`))
     }
   }
 })

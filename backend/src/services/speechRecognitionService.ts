@@ -823,10 +823,56 @@ export class MockRealTimeTranscriptionSession {
   }
 }
 
+/**
+ * 语音识别服务提供商枚举
+ */
+export enum SpeechServiceProvider {
+  ALIYUN = 'aliyun',
+  FUNASR = 'funasr'
+}
+
+/**
+ * 语音识别服务接口（统一接口）
+ */
+export interface ISpeechRecognitionService {
+  recognizeFromFile(filePath: string, options?: TranscriptionOptions): Promise<TranscriptionResult[]>
+  createRealTimeSession(options?: TranscriptionOptions): Promise<any>
+  useMockMode?: boolean
+}
+
+/**
+ * 创建语音识别服务实例（工厂模式）
+ */
+function createSpeechService(): ISpeechRecognitionService {
+  const provider = (process.env.SPEECH_SERVICE_PROVIDER || 'funasr') as SpeechServiceProvider
+
+  logger.info(`语音识别服务提供商: ${provider}`)
+
+  switch (provider) {
+    case SpeechServiceProvider.FUNASR:
+      // 使用 FunASR 服务
+      const { funasrService } = require('./funasrService')
+      logger.info('使用 FunASR 语音识别服务')
+      return funasrService as ISpeechRecognitionService
+
+    case SpeechServiceProvider.ALIYUN:
+      // 使用阿里云服务
+      const aliyunService = new AlibabaCloudSpeechService({
+        appKey: process.env.ALIBABA_CLOUD_APP_KEY || '',
+        accessKeyId: process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || '',
+        accessKeySecret: process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET || '',
+        region: process.env.ALIBABA_CLOUD_REGION || 'cn-shanghai'
+      }, process.env.USE_MOCK_SPEECH_SERVICE === 'true')
+
+      logger.info('使用阿里云语音识别服务')
+      return aliyunService as ISpeechRecognitionService
+
+    default:
+      logger.warn(`未知的语音识别服务提供商: ${provider}，使用 FunASR 作为默认`)
+      const { funasrService: defaultService } = require('./funasrService')
+      return defaultService as ISpeechRecognitionService
+  }
+}
+
 // 创建服务实例
-export const speechService = new AlibabaCloudSpeechService({
-  appKey: process.env.ALIBABA_CLOUD_APP_KEY || '',
-  accessKeyId: process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || '',
-  accessKeySecret: process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET || '',
-  region: process.env.ALIBABA_CLOUD_REGION || 'cn-shanghai'
-}, process.env.USE_MOCK_SPEECH_SERVICE === 'true')
+export const speechService = createSpeechService()

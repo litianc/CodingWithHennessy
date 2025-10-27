@@ -10,6 +10,7 @@ import { speechService, TranscriptionResult } from './speechRecognitionService'
 import { voiceprintService } from './voiceprintService'
 import { aiService, MeetingMinutesResult, MeetingMinutesOptions } from './aiService'
 import { fileTransService } from './fileTransService'
+import { multiSpeakerTranscriptionService } from './multiSpeakerTranscriptionService'
 import { IMeeting } from '@/models/Meeting'
 
 export interface ProcessAudioOptions {
@@ -85,29 +86,10 @@ export class MinutesGenerationService {
         convertedAudioPath: processedAudioPath !== audioFilePath ? processedAudioPath : undefined
       }
 
-      // 4. 声纹识别(如果启用)
-      if (meeting.settings?.enableVoiceprint && transcriptions.length > 0) {
-        try {
-          logger.info('开始声纹识别...')
-          const speakers = await voiceprintService.identifySpeakers(processedAudioPath, transcriptions)
-
-          // 将识别的发言人信息关联到转录记录
-          if (speakers && speakers.length > 0) {
-            const speakerMap = new Map(speakers.map(s => [s.speakerId, s]))
-
-            transcriptions.forEach(trans => {
-              const speaker = speakerMap.get(trans.speakerId)
-              if (speaker) {
-                trans.speakerName = speaker.name
-              }
-            })
-
-            result.speakers = speakers
-            logger.info(`声纹识别完成,识别到 ${speakers.length} 位发言人`)
-          }
-        } catch (error) {
-          logger.warn('声纹识别失败,继续使用speaker ID', error)
-        }
+      // 注意：声纹识别功能已移至 multiSpeakerTranscriptionService
+      // 如果启用了声纹识别，应该使用 /api/transcriptions/transcribe endpoint
+      if (meeting.settings?.enableVoiceprint) {
+        logger.info('提示：当前使用简单转录模式。要使用3D-Speaker多说话人识别，请调用 /api/transcriptions/transcribe')
       }
 
       return result
@@ -300,10 +282,61 @@ export class MinutesGenerationService {
   ): Promise<ProcessAudioResult> {
     try {
       const mode = options.transcriptionMode || 'overwrite' // 默认覆盖模式
-      logger.info(`开始完整流程:音频处理 → 语音识别 → 纪要生成（转录模式: ${mode === 'overwrite' ? '覆盖' : '追加'}）`)
+      const enableVoiceprint = meeting.settings?.enableVoiceprint || false
 
-      // 1. 处理音频文件
-      const processResult = await this.processAudioFile(audioFilePath, meeting)
+      logger.info(`开始完整流程:音频处理 → 语音识别 → 纪要生成（转录模式: ${mode === 'overwrite' ? '覆盖' : '追加'}，声纹识别: ${enableVoiceprint ? '启用' : '禁用'}）`)
+
+      let processResult: ProcessAudioResult
+
+      // 1. 处理音频文件 - 根据是否启用声纹识别选择不同的服务
+      if (enableVoiceprint) {
+        logger.info('使用多说话人转录服务 (包含3D-Speaker说话人分割和声纹识别)')
+
+        // 使用多说话人转录服务
+        const multiSpeakerResult = await multiSpeakerTranscriptionService.transcribe(audioFilePath, {
+          language: options.language || meeting.settings?.language || 'zh-CN',
+          enablePunctuation: true,
+          enableWordTimestamp: true,
+          userId: meeting.host?.toString()
+        })
+
+        // 转换为 ProcessAudioResult 格式
+        processResult = {
+          audioMetadata: {
+            duration: multiSpeakerResult.totalDuration / 1000, // 毫秒转秒
+            sampleRate: 16000, // 假设16kHz
+            channels: 1, // 假设单声道
+            format: 'wav'
+          },
+          transcriptions: multiSpeakerResult.segments.map(seg => ({
+            speakerId: seg.speakerId,
+            speakerName: seg.speakerName,
+            text: seg.content,
+            confidence: seg.confidence,
+            startTime: seg.startTime,
+            endTime: seg.endTime,
+            words: seg.words
+          })),
+          speakers: multiSpeakerResult.speakers.map(spk => ({
+            speakerId: spk.speakerId,
+            name: spk.name,
+            email: spk.department || undefined,
+            confidence: spk.avgConfidence
+          }))
+        }
+
+        // 更新会议的说话人统计信息
+        meeting.speakers = multiSpeakerResult.speakers
+        meeting.speakerCount = multiSpeakerResult.speakerCount
+        meeting.unknownSpeakerCount = multiSpeakerResult.unknownSpeakerCount
+
+        logger.info(`多说话人转录完成: ${processResult.transcriptions.length} 个片段, ${multiSpeakerResult.speakerCount} 个说话人`)
+      } else {
+        logger.info('使用简单转录服务 (仅FunASR语音识别)')
+
+        // 使用原有的简单转录服务
+        processResult = await this.processAudioFile(audioFilePath, meeting)
+      }
 
       // 2. 保存转录到会议（使用指定模式）
       await this.saveTranscriptionsToMeeting(meeting, processResult.transcriptions, mode)

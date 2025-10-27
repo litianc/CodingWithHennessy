@@ -32,6 +32,9 @@ export interface Meeting {
   recordings: Recording[];
   transcriptions: TranscriptionSegment[];
   transcriptionSegments?: TranscriptionSegment[]; // 兼容字段
+  speakers?: SpeakerStatistics[]; // 说话人统计数据
+  speakerCount?: number; // 说话人数量
+  unknownSpeakerCount?: number; // 未知说话人数量
   minutes?: MeetingMinutes;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +74,17 @@ export interface TranscriptionSegment {
   isComplete: boolean;
   startTime: number;
   endTime: number;
+}
+
+// 说话人统计类型
+export interface SpeakerStatistics {
+  speakerId: string;
+  name: string;
+  segmentCount: number;
+  totalDuration: number;
+  percentage: number;
+  avgConfidence: number;
+  isKnown: boolean;
 }
 
 // 会议纪要类型

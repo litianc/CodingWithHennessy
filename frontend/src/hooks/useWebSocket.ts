@@ -41,7 +41,10 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
 
     setState(prev => ({ ...prev, connectionStatus: 'connecting', error: null }))
 
-    const socket = io(import.meta.env.VITE_WS_URL || 'ws://localhost:5001', {
+    // 使用相对路径（空字符串）让 socket.io 自动使用当前域名和端口
+    // 这样会通过 Vite proxy 转发到后端 5001
+    const wsUrl = import.meta.env.VITE_WS_URL || ''
+    const socket = io(wsUrl, {
       auth: { token: token || 'demo-token' },
       transports: ['websocket', 'polling'],
       upgrade: true,

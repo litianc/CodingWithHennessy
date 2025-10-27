@@ -5,6 +5,7 @@ import { asyncHandler } from '@/middleware/errorHandler'
 import { AuthenticatedRequest } from '@/middleware/auth'
 import { speechService } from '@/services/speechRecognitionService'
 import { audioService } from '@/services/audioService'
+import { multiSpeakerTranscriptionService } from '@/services/multiSpeakerTranscriptionService'
 import { logger } from '@/utils/logger'
 import { emitToMeeting } from '@/utils/socket'
 
@@ -56,60 +57,128 @@ export const transcribeFromFile = asyncHandler(async (req: AuthenticatedRequest,
     // 获取录音文件路径
     const audioFilePath = audioService.getFilePath(meeting.recording.filename)
 
-    // 识别选项
-    const recognitionOptions = {
-      language: meeting.settings.language,
-      enablePunctuation: true,
-      enableInverseTextNormalization: true,
-      enableSpeakerDiarization: meeting.settings.enableVoiceprint,
-      speakerCount: meeting.participants.length,
-      ...options
-    }
+    // 检查是否启用声纹识别（多说话人模式）
+    const useMultiSpeaker = meeting.settings.enableVoiceprint
 
-    // 调试：检查服务状态
-    logger.info('服务状态检查:', {
-      isMockMode: speechService.useMockMode,
-      constructor: speechService.constructor.name
-    })
+    if (useMultiSpeaker) {
+      logger.info('使用多说话人转录模式')
 
-    // 执行语音识别
-    const results = await speechService.recognizeFromFile(audioFilePath, recognitionOptions)
+      // 调用多说话人转录服务
+      const result = await multiSpeakerTranscriptionService.transcribe(audioFilePath, {
+        language: meeting.settings.language || 'zh-cn',
+        enablePunctuation: true,
+        enableWordTimestamp: true,
+        userId: userId.toString()
+      })
 
-    // 清空原有的转录记录（覆盖模式）
-    meeting.transcriptions = []
-    logger.info(`清空会议 ${meetingId} 的原有转录记录，准备添加新的转录结果`)
+      // 清空原有的转录记录和说话人统计
+      meeting.transcriptions = []
+      meeting.speakers = []
+      logger.info(`清空会议 ${meetingId} 的原有转录记录和说话人统计`)
 
-    // 将转录结果保存到会议中
-    results.forEach(result => {
-      meeting.addTranscription(
-        result.speakerId || 'unknown',
-        result.speakerName || '未知说话人',
-        result.text,
-        result.confidence,
-        result.startTime,
-        result.endTime
-      )
-    })
+      // 保存说话人统计信息
+      meeting.speakers = result.speakers
+      meeting.speakerCount = result.speakerCount
+      meeting.unknownSpeakerCount = result.unknownSpeakerCount
 
-    await meeting.save()
+      // 保存转录片段（包含说话人信息、词级时间戳等）
+      result.segments.forEach(segment => {
+        meeting.transcriptions.push({
+          id: segment.id,
+          speakerId: segment.speakerId,
+          speakerName: segment.speakerName,
+          content: segment.content,
+          timestamp: new Date(),
+          confidence: segment.confidence,
+          startTime: segment.startTime,
+          endTime: segment.endTime,
+          words: segment.words,
+          isUnknown: segment.isUnknown
+        })
+      })
 
-    // 通知会议中的其他用户
-    emitToMeeting(meetingId, 'transcription-completed', {
-      meetingId,
-      transcriptionCount: results.length,
-      timestamp: new Date()
-    })
+      await meeting.save()
 
-    logger.info(`音频转录完成: ${meetingId}, 转录了 ${results.length} 条记录`)
+      // 通知会议中的其他用户（包含说话人统计）
+      emitToMeeting(meetingId, 'transcription-completed', {
+        meetingId,
+        transcriptionCount: result.segments.length,
+        speakerCount: result.speakerCount,
+        unknownSpeakerCount: result.unknownSpeakerCount,
+        speakers: result.speakers,
+        timestamp: new Date()
+      })
 
-    res.json({
-      success: true,
-      message: '转录完成',
-      data: {
-        transcriptions: results,
-        total: results.length
+      logger.info(`多说话人音频转录完成: ${meetingId}`, {
+        segments: result.segments.length,
+        speakers: result.speakerCount,
+        unknownSpeakers: result.unknownSpeakerCount
+      })
+
+      res.json({
+        success: true,
+        message: '多说话人转录完成',
+        data: {
+          transcriptions: result.segments,
+          speakers: result.speakers,
+          speakerCount: result.speakerCount,
+          unknownSpeakerCount: result.unknownSpeakerCount,
+          total: result.segments.length
+        }
+      })
+
+    } else {
+      // 使用传统单说话人模式
+      logger.info('使用传统单说话人转录模式')
+
+      // 识别选项
+      const recognitionOptions = {
+        language: meeting.settings.language,
+        enablePunctuation: true,
+        enableInverseTextNormalization: true,
+        enableSpeakerDiarization: false,
+        ...options
       }
-    })
+
+      // 执行语音识别
+      const results = await speechService.recognizeFromFile(audioFilePath, recognitionOptions)
+
+      // 清空原有的转录记录（覆盖模式）
+      meeting.transcriptions = []
+      logger.info(`清空会议 ${meetingId} 的原有转录记录，准备添加新的转录结果`)
+
+      // 将转录结果保存到会议中
+      results.forEach(result => {
+        meeting.addTranscription(
+          result.speakerId || 'unknown',
+          result.speakerName || '未知说话人',
+          result.text,
+          result.confidence,
+          result.startTime,
+          result.endTime
+        )
+      })
+
+      await meeting.save()
+
+      // 通知会议中的其他用户
+      emitToMeeting(meetingId, 'transcription-completed', {
+        meetingId,
+        transcriptionCount: results.length,
+        timestamp: new Date()
+      })
+
+      logger.info(`音频转录完成: ${meetingId}, 转录了 ${results.length} 条记录`)
+
+      res.json({
+        success: true,
+        message: '转录完成',
+        data: {
+          transcriptions: results,
+          total: results.length
+        }
+      })
+    }
   } catch (error) {
     logger.error('音频转录失败:', error)
     res.status(500).json({

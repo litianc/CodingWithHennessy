@@ -1,0 +1,243 @@
+.speaker-statistics {
+  width: 100%;
+}
+
+.overview-card {
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.overview-card .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.overview-card .ant-statistic-content {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.speaker-cards {
+  margin-bottom: 24px;
+}
+
+.speaker-card {
+  height: 100%;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.speaker-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.speaker-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.speaker-info {
+  margin-left: 16px;
+  flex: 1;
+}
+
+.speaker-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.speaker-rank {
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.speaker-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #262626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.percentage-bar {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.percentage-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.percentage-label span:first-child {
+  color: #595959;
+}
+
+.percentage-value {
+  font-weight: 600;
+  color: #262626;
+}
+
+.timeline-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.timeline-card .ant-card-head-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.timeline-card .ant-timeline {
+  margin-top: 16px;
+}
+
+.timeline-item {
+  padding: 8px 0;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.timeline-header strong {
+  font-size: 14px;
+  color: #262626;
+}
+
+.timeline-content {
+  font-size: 13px;
+  color: #595959;
+  line-height: 1.6;
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.timeline-time {
+  font-size: 12px;
+  color: #8c8c8c;
+  padding-left: 4px;
+}
+
+.timeline-more {
+  text-align: center;
+  padding: 16px;
+  color: #8c8c8c;
+  font-size: 13px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .speaker-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+  }
+
+  .stat-value {
+    justify-content: flex-end;
+  }
+
+  .overview-card .ant-col {
+    margin-bottom: 16px;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.speaker-card,
+.overview-card,
+.timeline-card {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.speaker-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.speaker-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.speaker-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .speaker-card {
+    background-color: #1f1f1f;
+  }
+
+  .speaker-name {
+    color: #ffffff;
+  }
+
+  .stat-value {
+    color: #ffffff;
+  }
+
+  .timeline-content {
+    color: #d9d9d9;
+  }
+
+  .speaker-header,
+  .percentage-bar {
+    border-color: #303030;
+  }
+}

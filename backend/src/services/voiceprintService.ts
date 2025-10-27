@@ -460,5 +460,133 @@ export class VoiceprintService {
   }
 }
 
+/**
+ * 声纹识别服务提供商枚举
+ */
+export enum VoiceprintServiceProvider {
+  LOCAL = 'local',
+  SPEAKER_3D = '3dspeaker'
+}
+
+/**
+ * 声纹识别服务接口（统一接口）
+ */
+export interface IVoiceprintService {
+  createVoiceprint(userId: string, name: string, email: string, audioBuffer: Float32Array, sampleRate?: number, metadata?: any): Promise<VoiceprintProfile>
+  matchVoiceprint(audioBuffer: Float32Array, sampleRate?: number): Promise<VoiceprintMatchResult[]>
+  getUserVoiceprints(userId: string): Promise<VoiceprintProfile[]>
+  deleteVoiceprintById(voiceprintId: string, userId: string): Promise<boolean>
+}
+
+/**
+ * 创建声纹识别服务实例（工厂模式）
+ */
+function createVoiceprintService(): IVoiceprintService {
+  const provider = (process.env.VOICEPRINT_SERVICE_PROVIDER || '3dspeaker') as VoiceprintServiceProvider
+
+  logger.info(`声纹识别服务提供商: ${provider}`)
+
+  switch (provider) {
+    case VoiceprintServiceProvider.SPEAKER_3D:
+      // 使用 3D-Speaker 服务
+      const { speakerRecognitionService } = require('./speakerRecognitionService')
+      logger.info('使用 3D-Speaker 声纹识别服务')
+
+      // 创建适配器，将 3D-Speaker API 适配到 VoiceprintService 接口
+      return {
+        async createVoiceprint(userId: string, name: string, email: string, audioBuffer: Float32Array, sampleRate = 16000) {
+          // 保存 audioBuffer 到临时文件
+          const tempPath = `/tmp/voiceprint_${Date.now()}.wav`
+          const { saveAudio } = require('./audioService')
+          await saveAudio(audioBuffer, tempPath, sampleRate)
+
+          try {
+            const profile = await speakerRecognitionService.registerSpeaker(userId, name, tempPath, email)
+            return speakerRecognitionService.convertToVoiceprintProfile(profile) as VoiceprintProfile
+          } finally {
+            // 清理临时文件
+            const fs = require('fs/promises')
+            try { await fs.unlink(tempPath) } catch (e) { /* ignore */ }
+          }
+        },
+
+        async matchVoiceprint(audioBuffer: Float32Array, sampleRate = 16000) {
+          // 保存 audioBuffer 到临时文件
+          const tempPath = `/tmp/recognize_${Date.now()}.wav`
+          const { saveAudio } = require('./audioService')
+          await saveAudio(audioBuffer, tempPath, sampleRate)
+
+          try {
+            const matches = await speakerRecognitionService.recognizeSpeaker(tempPath, 5)
+            return speakerRecognitionService.convertToVoiceprintMatchResult(matches)
+          } finally {
+            // 清理临时文件
+            const fs = require('fs/promises')
+            try { await fs.unlink(tempPath) } catch (e) { /* ignore */ }
+          }
+        },
+
+        async getUserVoiceprints(userId: string) {
+          const speakers = await speakerRecognitionService.listSpeakers()
+          return speakers
+            .filter(s => s.user_id === userId)
+            .map(s => speakerRecognitionService.convertToVoiceprintProfile(s)) as VoiceprintProfile[]
+        },
+
+        async deleteVoiceprintById(voiceprintId: string, userId: string) {
+          return await speakerRecognitionService.deleteSpeaker(voiceprintId)
+        }
+      } as IVoiceprintService
+
+    case VoiceprintServiceProvider.LOCAL:
+      // 使用本地实现
+      const localService = new VoiceprintService()
+      logger.info('使用本地声纹识别服务')
+      return localService as IVoiceprintService
+
+    default:
+      logger.warn(`未知的声纹识别服务提供商: ${provider}，使用 3D-Speaker 作为默认`)
+      const { speakerRecognitionService: defaultService } = require('./speakerRecognitionService')
+      logger.info('使用 3D-Speaker 声纹识别服务（默认）')
+
+      // 返回适配器（同上）
+      return {
+        async createVoiceprint(userId: string, name: string, email: string, audioBuffer: Float32Array, sampleRate = 16000) {
+          const tempPath = `/tmp/voiceprint_${Date.now()}.wav`
+          const { saveAudio } = require('./audioService')
+          await saveAudio(audioBuffer, tempPath, sampleRate)
+          try {
+            const profile = await defaultService.registerSpeaker(userId, name, tempPath, email)
+            return defaultService.convertToVoiceprintProfile(profile) as VoiceprintProfile
+          } finally {
+            const fs = require('fs/promises')
+            try { await fs.unlink(tempPath) } catch (e) { /* ignore */ }
+          }
+        },
+        async matchVoiceprint(audioBuffer: Float32Array, sampleRate = 16000) {
+          const tempPath = `/tmp/recognize_${Date.now()}.wav`
+          const { saveAudio } = require('./audioService')
+          await saveAudio(audioBuffer, tempPath, sampleRate)
+          try {
+            const matches = await defaultService.recognizeSpeaker(tempPath, 5)
+            return defaultService.convertToVoiceprintMatchResult(matches)
+          } finally {
+            const fs = require('fs/promises')
+            try { await fs.unlink(tempPath) } catch (e) { /* ignore */ }
+          }
+        },
+        async getUserVoiceprints(userId: string) {
+          const speakers = await defaultService.listSpeakers()
+          return speakers
+            .filter(s => s.user_id === userId)
+            .map(s => defaultService.convertToVoiceprintProfile(s)) as VoiceprintProfile[]
+        },
+        async deleteVoiceprintById(voiceprintId: string, userId: string) {
+          return await defaultService.deleteSpeaker(voiceprintId)
+        }
+      } as IVoiceprintService
+  }
+}
+
 // 导出单例实例
-export const voiceprintService = new VoiceprintService()
+export const voiceprintService = createVoiceprintService()

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-// Socket.IO should connect to root URL, not /api path
-const SOCKET_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001').replace('/api', '')
+// Socket.IO 使用相对路径（空字符串）连接到当前域名和端口
+// 这样会通过 Vite proxy 转发到后端 5001
+const SOCKET_URL = import.meta.env.VITE_WS_URL || ''
 
 // 立即创建全局 socket 实例
 console.log('🌍 初始化全局 Socket, URL:', SOCKET_URL)

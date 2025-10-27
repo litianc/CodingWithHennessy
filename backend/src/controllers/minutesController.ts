@@ -112,6 +112,17 @@ export const uploadAudioAndGenerateMinutes = asyncHandler(
 
       logger.info(`音频文件保存成功: ${audioFilePath}`)
 
+      // 设置 meeting.recording（用于 transcriptionController）
+      meeting.recording = {
+        id: audioFilename, // 使用filename作为ID
+        filename: audioFilename,
+        duration: 0, // 暂时设为0，处理后会更新
+        size: req.file.size,
+        format: path.extname(req.file.originalname).toLowerCase().replace('.', '')
+      }
+      await meeting.save()
+      logger.info(`已设置 meeting.recording.filename: ${audioFilename}`)
+
       // 获取WebSocket实例
       const io = getSocketIO()
       let wsHandler: MinutesWebSocketHandler | null = null

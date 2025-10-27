@@ -1,0 +1,30 @@
+# FunASR
+funasr/models/
+funasr/logs/
+funasr/cache/
+
+# 3D-Speaker
+3dspeaker/models/
+3dspeaker/voiceprints/
+3dspeaker/logs/
+
+# Python 虚拟环境
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

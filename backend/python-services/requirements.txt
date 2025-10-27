@@ -1,0 +1,35 @@
+# Web 框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# AI 模型
+# funasr==0.8.8  # FunASR通过Docker部署，不需要在这里安装
+# 3dspeaker==1.0.0  # 注意：3D-Speaker可能需要从源码安装
+modelscope==1.11.0
+
+# 深度学习（兼容 Python 3.12）
+torch==2.2.0
+torchaudio==2.2.0
+
+# 音频处理
+pydub==0.25.1
+librosa==0.10.1
+soundfile==0.12.1
+webrtcvad==2.0.10
+
+# 数值计算
+numpy==1.24.3
+scipy==1.11.4
+
+# HTTP 客户端
+requests==2.31.0
+aiohttp==3.9.1
+httpx==0.25.2
+
+# 工具
+python-dotenv==1.0.0
+pyyaml==6.0.1
+
+# 日志
+loguru==0.7.2

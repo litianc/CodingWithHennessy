@@ -1,0 +1,7 @@
+# This directory will contain FunASR models, logs, and cache
+# These files are large and should not be committed to git
+
+# Directory structure:
+# models/ - Downloaded model files
+# logs/ - Service logs
+# cache/ - ModelScope cache

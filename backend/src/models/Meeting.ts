@@ -32,6 +32,22 @@ export interface IMeeting extends Document {
     startedAt: Date
     endedAt?: Date
   }
+  // 说话人统计信息
+  speakers?: Array<{
+    speakerId: string
+    name: string
+    department?: string
+    isKnown: boolean
+    isUnknown?: boolean
+    voiceprintId?: string
+    segmentCount: number
+    totalDuration: number
+    percentage: number
+    avgConfidence: number
+  }>
+  speakerCount?: number
+  unknownSpeakerCount?: number
+
   transcriptions: Array<{
     id: string
     speakerId: string
@@ -41,6 +57,13 @@ export interface IMeeting extends Document {
     confidence: number
     startTime: number
     endTime: number
+    words?: Array<{
+      word: string
+      startTime: number
+      endTime: number
+      confidence?: number
+    }>
+    isUnknown?: boolean
   }>
   minutes?: {
     id: string
@@ -167,6 +190,54 @@ const meetingSchema = new Schema<IMeeting>({
     startedAt: Date,
     endedAt: Date,
   },
+  // 说话人统计信息
+  speakers: [{
+    speakerId: {
+      type: String,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    department: String,
+    isKnown: {
+      type: Boolean,
+      default: false,
+    },
+    isUnknown: {
+      type: Boolean,
+      default: false,
+    },
+    voiceprintId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Voiceprint',
+    },
+    segmentCount: {
+      type: Number,
+      default: 0,
+    },
+    totalDuration: {
+      type: Number,
+      default: 0,
+    },
+    percentage: {
+      type: Number,
+      default: 0,
+    },
+    avgConfidence: {
+      type: Number,
+      default: 0,
+    },
+  }],
+  speakerCount: {
+    type: Number,
+    default: 0,
+  },
+  unknownSpeakerCount: {
+    type: Number,
+    default: 0,
+  },
   transcriptions: [{
     id: {
       type: String,
@@ -201,6 +272,25 @@ const meetingSchema = new Schema<IMeeting>({
     endTime: {
       type: Number,
       required: true,
+    },
+    words: [{
+      word: {
+        type: String,
+        required: true,
+      },
+      startTime: {
+        type: Number,
+        required: true,
+      },
+      endTime: {
+        type: Number,
+        required: true,
+      },
+      confidence: Number,
+    }],
+    isUnknown: {
+      type: Boolean,
+      default: false,
     },
   }],
   minutes: {

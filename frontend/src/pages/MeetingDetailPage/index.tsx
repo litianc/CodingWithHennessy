@@ -21,6 +21,7 @@ import { RealTimeTranscription } from '@/components/meeting/RealTimeTranscriptio
 import { MeetingMinutes } from '@/components/meeting/MeetingMinutes'
 import { AIChat } from '@/components/meeting/AIChat'
 import { MeetingParticipants } from '@/components/meeting/MeetingParticipants'
+import SpeakerStatistics from '@/components/meeting/SpeakerStatistics'
 import { Meeting } from '@/types'
 
 const { Title, Text } = Typography
@@ -320,6 +321,12 @@ export const MeetingDetailPage: React.FC = () => {
                     <RealTimeTranscription
                       meetingId={currentMeeting._id}
                       editable={currentMeeting.status === 'completed'}
+                    />
+                  </TabPane>
+                  <TabPane tab="说话人统计" key="speakers">
+                    <SpeakerStatistics
+                      speakers={currentMeeting.speakers || []}
+                      transcriptions={currentMeeting.transcriptions || []}
                     />
                   </TabPane>
                   <TabPane tab="会议纪要" key="minutes">
